@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.greeting-card {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  border-radius: var(--radius-lg);
+  padding: 1.6rem 1.75rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.greeting-card::before {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.04);
+  pointer-events: none;
+}
+.greeting-card::after {
+  content: '';
+  position: absolute;
+  bottom: -70px; right: 100px;
+  width: 240px; height: 240px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.03);
+  pointer-events: none;
+}
+.greeting-left { display: flex; align-items: center; gap: 1.1rem; z-index: 1; min-width: 0; }
+.greeting-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: var(--amber);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.35rem; font-weight: 700; color: var(--navy);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 4px rgba(232,160,32,.22);
+}
+.greeting-line { font-size: 1.25rem; font-weight: 700; color: #fff; line-height: 1.2; margin-bottom: .28rem; }
+.greeting-sub  { font-size: .79rem; color: rgba(255,255,255,.58); line-height: 1.45; }
+.greeting-tags { display: flex; align-items: center; gap: .45rem; margin-top: .6rem; flex-wrap: wrap; }
+.greeting-tag {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .15rem .55rem; border-radius: 20px;
+  font-size: .67rem; font-weight: 600;
+  background: rgba(255,255,255,.1); color: rgba(255,255,255,.72);
+  border: 1px solid rgba(255,255,255,.12);
+}
+.greeting-tag.amber { background: rgba(232,160,32,.2); color: var(--amber-light); border-color: rgba(232,160,32,.25); }
+
+.greeting-right { z-index: 1; text-align: right; flex-shrink: 0; }
+.greeting-time  { font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.greeting-date  { font-size: .75rem; color: rgba(255,255,255,.42); margin-top: .28rem; }
+.greeting-note  { font-size: .72rem; color: rgba(255,255,255,.32); margin-top: .45rem; font-style: italic; max-width: 160px; line-height: 1.4; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Greeting Card -->
+<div class="greeting-card">
+  <div class="greeting-left">
+    <div class="greeting-avatar">{{ request.user.full_name|slice:":1"|upper }}</div>
+    <div>
+      <div class="greeting-line" id="greeting-text">Hello, {{ request.user.full_name|truncatewords:1 }} 👋</div>
+      <div class="greeting-sub">Here's your fleet overview for <strong style="color:rgba(255,255,255,.85);">{% now "l, j F Y" %}</strong></div>
+      <div class="greeting-tags">
+        <span class="greeting-tag amber">
+          <i class="fa-solid fa-shield-halved" style="font-size:.6rem;"></i>
+          {{ request.user.role.name|default:"Super Admin" }}
+        </span>
+        <span class="greeting-tag">
+          <i class="fa-solid fa-building" style="font-size:.6rem;"></i>
+          {{ request.user.department.name|default:"All Departments" }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="greeting-right">
+    <div class="greeting-time" id="live-time">--:--</div>
+    <div class="greeting-date">{% now "l, j F Y" %}</div>
+    <div class="greeting-note" id="greeting-note">Loading...</div>
+  </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon amber"><i class="fa-solid fa-ticket"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ stats.coupons_today }}</div>
+      <div class="stat-label">Coupons Issued Today</div>
+      <div class="stat-sub">₦ {{ stats.coupon_value_today|floatformat:2 }} total value</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon warning"><i class="fa-solid fa-clock-rotate-left"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ stats.open_coupons }}</div>
+      <div class="stat-label">Open Coupons</div>
+      <div class="stat-sub">Issued, not yet redeemed</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon navy"><i class="fa-solid fa-naira-sign"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">₦ {{ stats.monthly_spend|floatformat:0 }}</div>
+      <div class="stat-label">Spend This Month</div>
+      <div class="stat-sub">Fuel + Maintenance</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon success"><i class="fa-solid fa-truck"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ stats.active_vehicles }}</div>
+      <div class="stat-label">Active Vehicles</div>
+      <div class="stat-sub">{{ stats.total_vehicles }} total in fleet</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main grid -->
+<div class="dash-grid">
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    {% if alerts %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-bell card-icon"></i> Alerts &amp; Reminders
+          <span class="badge badge-danger">{{ alerts|length }}</span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0 1.25rem;">
+        {% for alert in alerts %}
+        <div class="alert-panel-item">
+          <div class="alert-dot" style="background:{% if alert.type == 'danger' %}var(--danger){% elif alert.type == 'warning' %}var(--amber){% else %}var(--info){% endif %}"></div>
+          <div style="flex:1">
+            <div style="font-weight:500;font-size:.83rem;">{{ alert.title }}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);">{{ alert.detail }}</div>
+          </div>
+          {% if alert.url %}<a href="{{ alert.url }}" class="btn btn-outline btn-sm">View</a>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-clock card-icon"></i> Recent Activity</div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Action</th><th>Record</th><th>User</th><th>Time</th></tr></thead>
+          <tbody>
+            {% for log in recent_activity %}
+            <tr>
+              <td><span class="badge badge-navy">{{ log.get_action_display }}</span></td>
+              <td>{{ log.module }} #{{ log.record_id }}</td>
+              <td>{{ log.user_name }}</td>
+              <td style="color:var(--text-muted);font-size:.78rem;">{{ log.timestamp|timesince }} ago</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:2rem;">No activity yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-wrench card-icon"></i> Service Due Soon</div>
+      </div>
+      <div class="card-body" style="padding:0 1.25rem;">
+        {% for v in service_due %}
+        <div class="alert-panel-item">
+          <div class="alert-dot" style="background:var(--warning)"></div>
+          <div style="flex:1">
+            <div class="fw-600" style="font-size:.83rem;">{{ v.plate_number }}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);">{{ v.make }} {{ v.model }}</div>
+          </div>
+          <div style="font-size:.75rem;color:var(--warning);font-weight:600;">{{ v.next_service_date }}</div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:1.5rem;">
+          <span class="empty-icon">✅</span>
+          <div class="empty-sub">No vehicles due for service</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-id-card card-icon"></i> License Expiry Alerts</div>
+      </div>
+      <div class="card-body" style="padding:0 1.25rem;">
+        {% for d in license_alerts %}
+        <div class="alert-panel-item">
+          <div class="alert-dot" style="background:var(--danger)"></div>
+          <div style="flex:1">
+            <div class="fw-600" style="font-size:.83rem;">{{ d.full_name }}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);">License {{ d.license_no }}</div>
+          </div>
+          <div style="font-size:.75rem;color:var(--danger);font-weight:600;">{{ d.days_until_license_expiry }}d left</div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:1.5rem;">
+          <span class="empty-icon">✅</span>
+          <div class="empty-sub">All licenses valid</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if top_vehicles %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-arrow-trend-up card-icon"></i> Top 5 by Cost (This Month)</div>
+      </div>
+      <div class="card-body" style="padding:0 1.25rem;">
+        {% for v in top_vehicles %}
+        <div class="alert-panel-item">
+          <div style="width:20px;text-align:center;font-size:.75rem;color:var(--text-light);font-weight:700;">{{ forloop.counter }}</div>
+          <div style="flex:1">
+            <div class="fw-600" style="font-size:.83rem;">{{ v.plate_number }}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);">{{ v.make }} {{ v.model }}</div>
+          </div>
+          <div style="font-size:.8rem;font-weight:700;color:var(--navy);">₦ {{ v.total_cost|floatformat:0 }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Live clock
+function updateClock() {
+  const now = new Date();
+  const h   = String(now.getHours()).padStart(2,'0');
+  const m   = String(now.getMinutes()).padStart(2,'0');
+  const el  = document.getElementById('live-time');
+  if (el) el.textContent = h + ':' + m;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Time-aware greeting + contextual note
+function setGreeting() {
+  const hour = new Date().getHours();
+  const name = "{{ request.user.full_name|truncatewords:1 }}";
+  let greet, note;
+  if (hour < 12) {
+    greet = "Good morning";
+    note  = "Start the day with your fleet in order.";
+  } else if (hour < 17) {
+    greet = "Good afternoon";
+    note  = "Keep an eye on any open coupons.";
+  } else {
+    greet = "Good evening";
+    note  = "Review today's activity before you close out.";
+  }
+  const gt = document.getElementById('greeting-text');
+  const gn = document.getElementById('greeting-note');
+  if (gt) gt.innerHTML = greet + ', <strong>' + name + '</strong> 👋';
+  if (gn) gn.textContent = note;
+}
+setGreeting();
+</script>
+{% endblock %}

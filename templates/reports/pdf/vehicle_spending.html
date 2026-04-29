@@ -1,0 +1,51 @@
+{% extends "reports/pdf/_base.html" %}
+{% block doc_title %}Per-Vehicle Spending{% endblock %}
+{% block page_label %}Per-Vehicle Spending{% endblock %}
+{% block report_title %}Per-Vehicle Spending Report{% endblock %}
+{% block back_url %}{% url 'reports:vehicle_spending' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}{% endblock %}
+
+{% block content %}
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-value">&#8358;{{ grand_fuel|floatformat:2 }}</div><div class="kpi-label">Total Fuel Spend</div></div>
+  <div class="kpi blue"><div class="kpi-value">&#8358;{{ grand_maint|floatformat:2 }}</div><div class="kpi-label">Total Maintenance</div></div>
+  <div class="kpi navy"><div class="kpi-value">&#8358;{{ grand_total|floatformat:2 }}</div><div class="kpi-label">Grand Total</div></div>
+  <div class="kpi green"><div class="kpi-value">{{ rows|length }}</div><div class="kpi-label">Vehicles with Activity</div></div>
+</div>
+
+<div class="section-title">Vehicle Breakdown</div>
+<table class="report-table">
+  <thead>
+    <tr>
+      <th>#</th><th>Plate No.</th><th>Make &amp; Model</th><th>Department</th>
+      <th class="r">Fuel Litres</th><th class="r">Fuel Cost (&#8358;)</th>
+      <th class="r">Maint. (&#8358;)</th><th class="r">Total Spend (&#8358;)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="muted">{{ forloop.counter }}</td>
+      <td class="bold">{{ r.vehicle.plate_number }}</td>
+      <td>{{ r.vehicle.make }} {{ r.vehicle.model }}</td>
+      <td>{{ r.vehicle.department.name }}</td>
+      <td class="r">{{ r.fuel_litres|floatformat:1 }} L</td>
+      <td class="r">{{ r.fuel_cost|floatformat:2 }}</td>
+      <td class="r">{{ r.maint_cost|floatformat:2 }}</td>
+      <td class="r navy">{{ r.total|floatformat:2 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8" class="muted" style="padding:20px;text-align:center;">No data for this period.</td></tr>
+    {% endfor %}
+  </tbody>
+  {% if rows %}
+  <tfoot>
+    <tr>
+      <td colspan="5">GRAND TOTAL</td>
+      <td class="r amber">{{ grand_fuel|floatformat:2 }}</td>
+      <td class="r amber">{{ grand_maint|floatformat:2 }}</td>
+      <td class="r amber">{{ grand_total|floatformat:2 }}</td>
+    </tr>
+  </tfoot>
+  {% endif %}
+</table>
+{% endblock %}

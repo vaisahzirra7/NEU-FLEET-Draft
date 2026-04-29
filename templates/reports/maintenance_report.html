@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Maintenance History{% endblock %}
+{% block page_title %}Maintenance History Report{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a> <span class="sep">›</span> Maintenance History{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left"><h1>Maintenance History</h1><p>{{ date_from|date:"j M Y" }} — {{ date_to|date:"j M Y" }}</p></div>
+</div>
+{% include "reports/_filter_bar.html" %}
+
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card"><div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="stat-body"><div class="stat-value">{{ records|length }}</div><div class="stat-label">Total Records</div></div></div>
+  <div class="stat-card"><div class="stat-icon navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_cost|floatformat:2 }}</div><div class="stat-label">Total Cost</div></div></div>
+  {% for label, cost in by_type.items %}
+  <div class="stat-card"><div class="stat-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div><div class="stat-body"><div class="stat-value" style="font-size:1.1rem;">₦ {{ cost|floatformat:0 }}</div><div class="stat-label">{{ label }}</div></div></div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">All Maintenance Records</div></div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Vehicle</th><th>Type</th><th>Description</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
+      <tbody>
+        {% for rec in records %}
+        <tr>
+          <td>{{ rec.service_date|date:"j M Y" }}</td>
+          <td><a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="fw-600">{{ rec.vehicle.plate_number }}</a></td>
+          <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ rec.description }}</td>
+          <td>{{ rec.effective_vendor_name }}</td>
+          <td class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
+          <td style="color:var(--text-muted);font-size:.78rem;">{{ rec.approved_by }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7"><div class="empty-state"><span class="empty-icon">🔧</span><div class="empty-title">No records in this period</div></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

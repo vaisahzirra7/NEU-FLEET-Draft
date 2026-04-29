@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ vehicle.plate_number }}{% endblock %}
+{% block page_title %}{{ vehicle.plate_number }}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'vehicles:list' %}">Vehicles</a>
+  <span class="sep">›</span> {{ vehicle.plate_number }}
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ vehicle.plate_number }}</h1>
+    <p>{{ vehicle.make }} {{ vehicle.model }} &nbsp;·&nbsp; {{ vehicle.get_vehicle_type_display }} &nbsp;·&nbsp; {{ vehicle.year }}</p>
+  </div>
+  <div class="d-flex gap-1">
+    {% if can_edit %}
+    <a href="{% url 'vehicles:edit' vehicle.pk %}" class="btn btn-outline">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit
+    </a>
+    {% endif %}
+    <a href="{% url 'coupons:create' %}?vehicle={{ vehicle.pk }}" class="btn btn-amber">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Issue Coupon
+    </a>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card">
+    <div class="stat-icon {% if vehicle.status == 'active' %}success{% elif vehicle.status == 'under_repair' %}warning{% else %}navy{% endif %}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    </div>
+    <div class="stat-body">
+      <div class="stat-value" style="font-size:1rem;">
+        {% if vehicle.status == "active" %}<span class="badge badge-success">Active</span>
+        {% elif vehicle.status == "under_repair" %}<span class="badge badge-warning">Under Repair</span>
+        {% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
+      </div>
+      <div class="stat-label">Vehicle Status</div>
+      <div class="stat-sub">{{ vehicle.get_fuel_type_display }} &nbsp;·&nbsp; {{ vehicle.colour|default:"—" }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="stat-body">
+      <div class="stat-value">₦ {{ total_fuel|floatformat:0 }}</div>
+      <div class="stat-label">Total Fuel Spend</div>
+      <div class="stat-sub">All time</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+    <div class="stat-body">
+      <div class="stat-value">₦ {{ total_maint|floatformat:0 }}</div>
+      <div class="stat-label">Total Maintenance</div>
+      <div class="stat-sub">All time</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="stat-body">
+      <div class="stat-value">₦ {{ total_spend|floatformat:0 }}</div>
+      <div class="stat-label">Total Spend</div>
+      <div class="stat-sub">Fuel + Maintenance</div>
+    </div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  <!-- Left: details + history -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Vehicle details -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Vehicle Details</div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="data-table">
+          <tbody>
+            <tr><td style="color:var(--text-muted);width:40%;">Department</td><td>{{ vehicle.department.name }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Default Driver</td><td>{{ vehicle.default_driver.full_name|default:"—" }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Engine No.</td><td class="font-mono">{{ vehicle.engine_no|default:"—" }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Chassis No.</td><td class="font-mono">{{ vehicle.chassis_no|default:"—" }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Registered</td><td>{{ vehicle.created_at|date:"j M Y" }}</td></tr>
+            {% if vehicle.notes %}
+            <tr><td style="color:var(--text-muted);">Notes</td><td>{{ vehicle.notes }}</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent maintenance -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Maintenance</div>
+        <a href="{% url 'maintenance:create' %}?vehicle={{ vehicle.pk }}" class="btn btn-outline btn-sm">+ Add Record</a>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Cost</th><th>Next Service</th></tr></thead>
+          <tbody>
+            {% for m in maintenance %}
+            <tr>
+              <td>{{ m.service_date|date:"j M Y" }}</td>
+              <td>{{ m.get_service_type_display }}</td>
+              <td>₦ {{ m.total_cost|floatformat:2 }}</td>
+              <td>
+                {% if m.next_service_date %}
+                  {% if m.is_service_due_soon %}
+                    <span class="badge badge-warning">{{ m.next_service_date }}</span>
+                  {% else %}
+                    {{ m.next_service_date }}
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No maintenance records yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent fuel logs -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Fuel Logs</div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Coupon</th><th>Litres</th><th>Cost</th></tr></thead>
+          <tbody>
+            {% for fl in fuel_logs %}
+            <tr>
+              <td>{{ fl.fuel_date|date:"j M Y" }}</td>
+              <td><span class="coupon-id">{{ fl.coupon.coupon_id }}</span></td>
+              <td>{{ fl.actual_litres }} L</td>
+              <td>₦ {{ fl.actual_cost|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No fuel logs yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: coupons -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Coupons</div>
+        <a href="{% url 'coupons:list' %}?vehicle={{ vehicle.pk }}" class="btn btn-outline btn-sm">View All</a>
+      </div>
+      <div class="card-body" style="padding:0 1.25rem;">
+        {% for c in coupons %}
+        <div class="alert-panel-item">
+          <div>
+            <div class="coupon-id" style="margin-bottom:.2rem;">{{ c.coupon_id }}</div>
+            <div style="font-size:.75rem;color:var(--text-muted);">{{ c.issue_datetime|date:"j M Y" }} &nbsp;·&nbsp; {{ c.litres }} L</div>
+          </div>
+          <span class="badge {% if c.status == 'redeemed' %}badge-success{% elif c.status == 'issued' %}badge-amber{% elif c.status == 'cancelled' %}badge-danger{% else %}badge-muted{% endif %}">
+            {{ c.get_status_display }}
+          </span>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:1.5rem;">
+          <span class="empty-icon">🎫</span>
+          <div class="empty-sub">No coupons issued yet.</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

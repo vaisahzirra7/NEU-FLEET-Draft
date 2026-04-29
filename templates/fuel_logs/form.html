@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Redeem Coupon{% endblock %}
+{% block page_title %}Redeem Fuel Coupon{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'fuel_logs:list' %}">Fuel Logs</a>
+  <span class="sep">›</span> Redeem
+{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Log Fuel Transaction</div>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <!-- Coupon lookup -->
+        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Coupon Lookup</div>
+          <div class="form-group">
+            <label class="form-label">Coupon ID or Verification Code <span class="req">*</span></label>
+            <div class="d-flex gap-1">
+              <input type="text" name="coupon_id" id="coupon-lookup"
+                class="form-control {% if errors.coupon_id %}field-error{% endif %}"
+                value="{% if coupon_id_val %}{{ coupon_id_val }}{% endif %}"
+                placeholder="e.g. FMS-2026-00001 or X7K2-P9QR"
+                style="text-transform:uppercase;font-family:var(--font-mono);">
+              <button type="button" id="coupon-lookup-btn" class="btn btn-outline">Look Up</button>
+            </div>
+            {% if errors.coupon_id %}<div class="error-msg">{{ errors.coupon_id }}</div>{% endif %}
+            <div id="coupon-lookup-error" class="error-msg" style="margin-top:.3rem;"></div>
+          </div>
+
+          <!-- Coupon info box -->
+          <div id="coupon-info-box" style="{% if not prefilled %}display:none;{% endif %}background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-top:.5rem;">
+            <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">Coupon Details</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .75rem;font-size:.82rem;">
+              <div><span style="color:var(--text-muted);">Vehicle:</span> <strong id="coupon-info-plate">{% if prefilled %}{{ prefilled.vehicle.plate_number }}{% endif %}</strong></div>
+              <div><span style="color:var(--text-muted);">Driver:</span> <strong id="coupon-info-driver">{% if prefilled %}{{ prefilled.driver.full_name }}{% endif %}</strong></div>
+              <div><span style="color:var(--text-muted);">Litres:</span> <strong id="coupon-info-litres">{% if prefilled %}{{ prefilled.litres }} L{% endif %}</strong></div>
+              <div><span style="color:var(--text-muted);">Value:</span> <strong id="coupon-info-value" style="color:var(--navy);">{% if prefilled %}₦ {{ prefilled.total_value|floatformat:2 }}{% endif %}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actual transaction -->
+        <div style="margin-bottom:1.25rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Actual Transaction</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Actual Litres Filled <span class="req">*</span></label>
+              <input type="number" name="actual_litres" step="0.01" min="0.01"
+                class="form-control {% if errors.actual_litres %}field-error{% endif %}"
+                value="{% if actual_litres_val %}{{ actual_litres_val }}{% endif %}"
+                placeholder="Actual litres dispensed">
+              {% if errors.actual_litres %}<div class="error-msg">{{ errors.actual_litres }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Actual Total Cost (₦) <span class="req">*</span></label>
+              <input type="number" name="actual_cost" step="0.01" min="0.01"
+                class="form-control {% if errors.actual_cost %}field-error{% endif %}"
+                value="{% if actual_cost_val %}{{ actual_cost_val }}{% endif %}"
+                placeholder="Amount paid">
+              {% if errors.actual_cost %}<div class="error-msg">{{ errors.actual_cost }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date of Fuelling <span class="req">*</span></label>
+              <input type="date" name="fuel_date"
+                class="form-control {% if errors.fuel_date %}field-error{% endif %}"
+                value="{% if fuel_date_val %}{{ fuel_date_val }}{% endif %}">
+              {% if errors.fuel_date %}<div class="error-msg">{{ errors.fuel_date }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control" rows="2"
+              placeholder="Any discrepancies or remarks...">{% if notes_val %}{{ notes_val }}{% endif %}</textarea>
+          </div>
+        </div>
+
+        <div class="d-flex gap-1">
+          <button type="submit" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Save & Redeem Coupon
+          </button>
+          <a href="{% url 'fuel_logs:list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('coupon-lookup-btn')?.addEventListener('click', async function() {
+  const input    = document.getElementById('coupon-lookup');
+  const errorDiv = document.getElementById('coupon-lookup-error');
+  const infoBox  = document.getElementById('coupon-info-box');
+  const code     = input?.value.trim().toUpperCase();
+  if (!code) return;
+
+  // Clear any previous error immediately
+  errorDiv.textContent = '';
+  this.textContent = '...';
+  this.disabled = true;
+
+  try {
+    const res  = await fetch(`/coupons/lookup/?q=${encodeURIComponent(code)}`);
+    const data = await res.json();
+
+    if (data.error) {
+      errorDiv.textContent    = data.error;
+      infoBox.style.display   = 'none';
+    } else {
+      errorDiv.textContent    = '';
+      document.getElementById('coupon-info-plate').textContent  = data.plate;
+      document.getElementById('coupon-info-driver').textContent = data.driver;
+      document.getElementById('coupon-info-litres').textContent = data.litres + ' L';
+      document.getElementById('coupon-info-value').textContent  = '₦ ' + parseFloat(data.total_value).toLocaleString('en-NG', {minimumFractionDigits:2});
+      infoBox.style.display   = 'block';
+
+      // Pre-fill actual amounts
+      const litresInput = document.querySelector('input[name="actual_litres"]');
+      const costInput   = document.querySelector('input[name="actual_cost"]');
+      if (litresInput) litresInput.value = data.litres;
+      if (costInput)   costInput.value   = parseFloat(data.total_value).toFixed(2);
+    }
+  } catch(e) {
+    // Only show network error if we truly couldn't reach the server
+    if (!navigator.onLine) {
+      errorDiv.textContent = 'No internet connection. Please try again.';
+    } else {
+      errorDiv.textContent = 'Lookup failed. Please try again.';
+    }
+    console.error('Coupon lookup error:', e);
+  }
+
+  this.textContent = 'Look Up';
+  this.disabled = false;
+});
+</script>
+{% endblock %}

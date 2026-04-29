@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Departments{% endblock %}
+{% block page_title %}Departments{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'accounts:users' %}">Admin</a>
+  <span class="sep">›</span> Departments
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Departments</h1>
+    <p>University departments that own and operate vehicles</p>
+  </div>
+  <a href="{% url 'accounts:department_create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Department
+  </a>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Department Name</th>
+          <th>Code</th>
+          <th>Vehicles</th>
+          <th>Users</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in departments %}
+        <tr>
+          <td class="fw-600">{{ d.name }}</td>
+          <td><span class="badge badge-navy font-mono">{{ d.code }}</span></td>
+          <td>{{ d.vehicles.count }}</td>
+          <td>{{ d.users.count }}</td>
+          <td>
+            {% if d.is_active %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge badge-muted">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'accounts:department_edit' d.pk %}" class="btn btn-outline btn-sm">Edit</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <span class="empty-icon">🏫</span>
+              <div class="empty-title">No departments yet</div>
+              <div class="empty-sub">Add at least one department before registering vehicles or users.</div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if not departments %}
+<div class="card mt-2" style="margin-top:1rem;border-left:3px solid var(--amber);background:var(--amber-pale);">
+  <div class="card-body" style="display:flex;align-items:flex-start;gap:.75rem;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:.1rem;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div>
+      <div class="fw-600" style="font-size:.85rem;color:var(--warning);">Departments are required before you can register vehicles or users.</div>
+      <div style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem;">
+        Create departments first (e.g. "Transport Department" with code "TRANSPORT", "Vice Chancellor's Office" with code "VCO") — then you can assign vehicles and users to them.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

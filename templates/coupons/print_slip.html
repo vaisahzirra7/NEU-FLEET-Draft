@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coupon {{ coupon.coupon_id }}</title>
+  {% load static %}
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+
+    /* Print controls — hidden when printing */
+    .print-controls {
+      display: flex;
+      gap: .75rem;
+      margin-bottom: 1.5rem;
+      align-items: center;
+    }
+
+    .btn-print {
+      background: #0f2044;
+      color: #fff;
+      border: none;
+      padding: .6rem 1.4rem;
+      border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .btn-back {
+      background: transparent;
+      color: #555;
+      border: 1px solid #ccc;
+      padding: .6rem 1.2rem;
+      border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: .85rem;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    /* ── Coupon Slip ── */
+    .coupon {
+      width: 148mm;   /* A5 width */
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.15);
+      page-break-inside: avoid;
+    }
+
+    /* Header */
+    .coupon-header {
+      background: #0f2044;
+      padding: 1rem 1.25rem .9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .coupon-header-left { }
+
+    .coupon-univ {
+      font-size: .62rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.5);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: .2rem;
+    }
+
+    .coupon-title {
+      font-size: .95rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .coupon-header-right {
+      text-align: right;
+    }
+
+    .coupon-type-badge {
+      background: #e8a020;
+      color: #0f2044;
+      font-size: .62rem;
+      font-weight: 700;
+      padding: .2rem .55rem;
+      border-radius: 20px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    /* ID section */
+    .coupon-ids {
+      background: #f8f9fc;
+      border-bottom: 1px solid #e8eaf0;
+      padding: .85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .id-block { }
+
+    .id-label {
+      font-size: .6rem;
+      font-weight: 700;
+      color: #8895b0;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: .2rem;
+    }
+
+    .id-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .95rem;
+      font-weight: 700;
+      color: #0f2044;
+      letter-spacing: .04em;
+    }
+
+    .verify-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e8a020;
+      background: #fef8ec;
+      border: 1.5px dashed #e8a020;
+      border-radius: 6px;
+      padding: .3rem .65rem;
+      letter-spacing: .1em;
+    }
+
+    /* Body */
+    .coupon-body {
+      padding: .85rem 1.25rem;
+    }
+
+    .coupon-row {
+      display: flex;
+      gap: .75rem;
+      margin-bottom: .6rem;
+    }
+
+    .coupon-field {
+      flex: 1;
+    }
+
+    .field-label {
+      font-size: .58rem;
+      font-weight: 700;
+      color: #8895b0;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: .15rem;
+    }
+
+    .field-value {
+      font-size: .82rem;
+      font-weight: 600;
+      color: #0f1c35;
+    }
+
+    /* Total highlight */
+    .coupon-total {
+      background: #0f2044;
+      border-radius: 8px;
+      padding: .7rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: .75rem 0 .85rem;
+    }
+
+    .total-label {
+      font-size: .65rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.55);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .total-amount {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #f5bc4a;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .total-detail {
+      font-size: .65rem;
+      color: rgba(255,255,255,.4);
+      margin-top: .1rem;
+    }
+
+    /* Auth row */
+    .coupon-auth {
+      border-top: 1px solid #e8eaf0;
+      padding: .7rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8f9fc;
+    }
+
+    .auth-block { }
+
+    .auth-label {
+      font-size: .58rem;
+      font-weight: 700;
+      color: #8895b0;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: .15rem;
+    }
+
+    .auth-value {
+      font-size: .8rem;
+      font-weight: 600;
+      color: #0f1c35;
+    }
+
+    /* QR code area */
+    .qr-area {
+      text-align: center;
+    }
+
+    .qr-area img {
+      width: 70px;
+      height: 70px;
+      image-rendering: pixelated;
+    }
+
+    .qr-hint {
+      font-size: .55rem;
+      color: #aaa;
+      margin-top: .2rem;
+    }
+
+    /* Footer */
+    .coupon-footer {
+      background: #e8eaf0;
+      padding: .55rem 1.25rem;
+      font-size: .62rem;
+      color: #7a8299;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* Status watermark for non-issued coupons */
+    .status-watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: rgba(192,57,43,.15);
+      pointer-events: none;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      z-index: 10;
+    }
+
+    .coupon-wrap {
+      position: relative;
+    }
+
+    /* ── Print styles ── */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .print-controls { display: none; }
+      .coupon { box-shadow: none; border-radius: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Controls (screen only) -->
+<div class="print-controls">
+  <button class="btn-print" onclick="window.print()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print Slip
+  </button>
+  <a href="{% url 'coupons:detail' coupon.pk %}" class="btn-back">← Back to Coupon</a>
+  <a href="{% url 'coupons:list' %}" class="btn-back">View All Coupons</a>
+</div>
+
+<!-- Coupon slip -->
+<div class="coupon-wrap">
+  {% if coupon.status != "issued" %}
+  <div class="status-watermark">{{ coupon.get_status_display }}</div>
+  {% endif %}
+
+  <div class="coupon">
+
+    <!-- Header -->
+    <div class="coupon-header">
+      <div class="coupon-header-left">
+        <!-- University logo mark -->
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.55rem;">
+          <div style="width:38px;height:38px;background:var(--amber);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f2044" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="3" width="15" height="13" rx="2"/>
+              <path d="M16 8h4l3 5v3h-7V8z"/>
+              <circle cx="5.5" cy="18.5" r="2.5"/>
+              <circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-size:.72rem;font-weight:700;color:#fff;line-height:1.2;letter-spacing:.01em;">North-Eastern University, Gombe</div>
+            <div style="font-size:.6rem;color:rgba(255,255,255,.5);letter-spacing:.04em;text-transform:uppercase;">Fleet Management System (FMS)</div>
+          </div>
+        </div>
+        <div class="coupon-title" style="font-size:.8rem;color:rgba(255,255,255,.6);font-weight:500;">Fuel Coupon</div>
+      </div>
+      <div class="coupon-header-right">
+        <span class="coupon-type-badge">FUEL</span>
+      </div>
+    </div>
+
+    <!-- IDs -->
+    <div class="coupon-ids">
+      <div class="id-block">
+        <div class="id-label">Coupon ID</div>
+        <div class="id-value">{{ coupon.coupon_id }}</div>
+      </div>
+      <div class="id-block" style="text-align:right;">
+        <div class="id-label">Verification Code</div>
+        <div class="verify-value">{{ coupon.verification_code }}</div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="coupon-body">
+
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Vehicle</div>
+          <div class="field-value">{{ coupon.vehicle.plate_number }}</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">Vehicle Type</div>
+          <div class="field-value">{{ coupon.vehicle.make }} {{ coupon.vehicle.model }}</div>
+        </div>
+      </div>
+
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Driver</div>
+          <div class="field-value">{{ coupon.driver.full_name }}</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">Staff ID</div>
+          <div class="field-value">{{ coupon.driver.staff_id }}</div>
+        </div>
+      </div>
+
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Fuel Station</div>
+          <div class="field-value">{{ coupon.fuel_station.name }}</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">Fuel Type</div>
+          <div class="field-value">{{ coupon.vehicle.get_fuel_type_display }}</div>
+        </div>
+      </div>
+
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Litres Authorised</div>
+          <div class="field-value">{{ coupon.litres }} Litres</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">Cost per Litre</div>
+          <div class="field-value">₦ {{ coupon.cost_per_litre|floatformat:2 }}</div>
+        </div>
+      </div>
+
+      <!-- Total -->
+      <div class="coupon-total">
+        <div>
+          <div class="total-label">Total Authorised Value</div>
+          <div class="total-detail">{{ coupon.litres }} L × ₦{{ coupon.cost_per_litre|floatformat:2 }}</div>
+        </div>
+        <div class="total-amount">₦ {{ coupon.total_value|floatformat:2 }}</div>
+      </div>
+
+      {% if coupon.purpose %}
+      <div style="margin-bottom:.75rem;">
+        <div class="field-label">Purpose</div>
+        <div class="field-value" style="font-weight:400;">{{ coupon.purpose }}</div>
+      </div>
+      {% endif %}
+
+      {% if coupon.expiry_date %}
+      <div style="margin-bottom:.5rem;">
+        <div class="field-label">Valid Until</div>
+        <div class="field-value">{{ coupon.expiry_date }}</div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Auth + QR -->
+    <div class="coupon-auth">
+      <div>
+        <div class="auth-block" style="margin-bottom:.4rem;">
+          <div class="auth-label">Authorised By</div>
+          <div class="auth-value">{{ coupon.issued_by.full_name }}</div>
+        </div>
+        <div class="auth-block">
+          <div class="auth-label">Issue Date & Time</div>
+          <div class="auth-value">{{ coupon.issue_datetime|date:"j M Y \a\t H:i" }}</div>
+        </div>
+      </div>
+      <div class="qr-area">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data={{ coupon.coupon_id }}" alt="QR {{ coupon.coupon_id }}">
+        <div class="qr-hint">Scan for reference</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="coupon-footer">
+      This coupon is valid for one use only. Any alteration voids this coupon.
+      &nbsp;·&nbsp; VanaraFleetsOps &nbsp;·&nbsp; North-Eastern University, Gombe
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Auto-open print dialog when page loads
+  window.addEventListener('load', function() {
+    // Small delay to ensure fonts load
+    setTimeout(() => window.print(), 800);
+  });
+</script>
+</body>
+</html>

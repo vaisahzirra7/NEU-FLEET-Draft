@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Vehicles{% endblock %}
+{% block page_title %}Vehicles{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Vehicles{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Vehicle Register</h1>
+    <p>All university-owned vehicles</p>
+  </div>
+  {% if can_write %}
+  <a href="{% url 'vehicles:create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Vehicle
+  </a>
+  {% endif %}
+</div>
+
+<!-- Filters -->
+<div class="card mb-2" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar">
+      <div class="search-wrap">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Search plate, make, model..." class="form-control">
+      </div>
+      <select name="status" class="form-select" style="width:auto;">
+        <option value="">All Statuses</option>
+        {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="type" class="form-select" style="width:auto;">
+        <option value="">All Types</option>
+        {% for val, label in type_choices %}
+        <option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if q or status_filter or type_filter %}
+      <a href="{% url 'vehicles:list' %}" class="btn btn-outline">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Plate Number</th>
+          <th>Type</th>
+          <th>Make & Model</th>
+          <th>Year</th>
+          <th>Department</th>
+          <th>Fuel</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vehicles %}
+        <tr>
+          <td>
+            <a href="{% url 'vehicles:detail' v.pk %}" class="fw-600" style="color:var(--navy);">{{ v.plate_number }}</a>
+          </td>
+          <td>{{ v.get_vehicle_type_display }}</td>
+          <td>{{ v.make }} {{ v.model }}</td>
+          <td>{{ v.year }}</td>
+          <td>{{ v.department.name }}</td>
+          <td>{{ v.get_fuel_type_display }}</td>
+          <td>
+            {% if v.status == "active" %}
+              <span class="badge badge-success">Active</span>
+            {% elif v.status == "under_repair" %}
+              <span class="badge badge-warning">Under Repair</span>
+            {% else %}
+              <span class="badge badge-muted">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{% url 'vehicles:detail' v.pk %}" class="btn btn-outline btn-sm">View</a>
+              {% if can_write %}
+              <a href="{% url 'vehicles:edit' v.pk %}" class="btn btn-outline btn-sm">Edit</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8">
+            <div class="empty-state">
+              <span class="empty-icon">🚛</span>
+              <div class="empty-title">No vehicles found</div>
+              <div class="empty-sub">{% if q %}Try a different search term.{% else %}Register your first vehicle to get started.{% endif %}</div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}VanaraFleetsOps{% endblock %} — Fleet Management</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+
+<div class="app-shell">
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-brand">
+      <div class="brand-logo">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f2044" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13" rx="2"/>
+            <path d="M16 8h4l3 5v3h-7V8z"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/>
+            <circle cx="18.5" cy="18.5" r="2.5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">VanaraFleetsOps</div>
+        </div>
+      </div>
+      <div class="brand-sub">North-Eastern University, Gombe &nbsp;·&nbsp; FMS</div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="sidebar-nav">
+      {% with modules=request.user.get_allowed_modules %}
+
+      {% if "dashboard" in modules %}
+      <a class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </span>
+        Dashboard
+      </a>
+      {% endif %}
+
+      {% if "vehicles" in modules or "drivers" in modules or "vendors" in modules %}
+      <div class="nav-section-label">
+        <span>Fleet</span><div class="nav-section-line"></div>
+      </div>
+      {% endif %}
+
+      {% if "vehicles" in modules %}
+      <a class="nav-item {% if 'vehicles' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'vehicles:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13" rx="2"/>
+            <path d="M16 8h4l3 5v3h-7V8z"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+          </svg>
+        </span>
+        Vehicles
+      </a>
+      {% endif %}
+
+      {% if "drivers" in modules %}
+      <a class="nav-item {% if 'drivers' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'drivers:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        Drivers
+      </a>
+      {% endif %}
+
+      {% if "vendors" in modules %}
+      <a class="nav-item {% if 'vendors' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'vendors:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </span>
+        Vendors
+      </a>
+      {% endif %}
+
+      {% if "coupons" in modules or "fuel_logs" in modules %}
+      <div class="nav-section-label">
+        <span>Fuel</span><div class="nav-section-line"></div>
+      </div>
+      {% endif %}
+
+      {% if "coupons" in modules %}
+      <a class="nav-item {% if 'coupons' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'coupons:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
+            <line x1="9" y1="12" x2="9.01" y2="12"/><line x1="12" y1="12" x2="12.01" y2="12"/><line x1="15" y1="12" x2="15.01" y2="12"/>
+          </svg>
+        </span>
+        Fuel Coupons
+      </a>
+      {% endif %}
+
+      {% if "fuel_logs" in modules %}
+      <a class="nav-item {% if 'fuel_logs' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'fuel_logs:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 22V8l5-4 5 4v14"/>
+            <path d="M18 22V11.5"/><path d="M13 12h8"/>
+            <path d="M18 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+          </svg>
+        </span>
+        Fuel Logs
+      </a>
+      {% endif %}
+
+      {% if "maintenance" in modules or "reports" in modules %}
+      <div class="nav-section-label">
+        <span>Operations</span><div class="nav-section-line"></div>
+      </div>
+      {% endif %}
+
+      {% if "maintenance" in modules %}
+      <a class="nav-item {% if 'maintenance' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'maintenance:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </span>
+        Maintenance
+      </a>
+      {% endif %}
+
+      {% if "reports" in modules %}
+      <a class="nav-item {% if 'reports' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'reports:index' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6"  y1="20" x2="6"  y2="14"/>
+            <line x1="2"  y1="20" x2="22" y2="20"/>
+          </svg>
+        </span>
+        Reports
+      </a>
+      {% endif %}
+
+      {% if "users" in modules or "roles" in modules or "audit" in modules %}
+      <div class="nav-section-label">
+        <span>Admin</span><div class="nav-section-line"></div>
+      </div>
+      {% endif %}
+
+      {% if request.user.is_system_admin %}
+      <a class="nav-item {% if 'department' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'accounts:departments' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </span>
+        Departments
+      </a>
+      {% endif %}
+
+      {% if "users" in modules %}
+      <a class="nav-item {% if 'accounts' in request.resolver_match.app_name and 'user' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'accounts:users' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        Users
+      </a>
+      {% endif %}
+
+      {% if "roles" in modules %}
+      <a class="nav-item {% if 'role' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'accounts:roles' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </span>
+        Roles &amp; Permissions
+      </a>
+      {% endif %}
+
+      {% if "audit" in modules %}
+      <a class="nav-item {% if 'audit' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'audit:log' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </span>
+        Audit Trail
+      </a>
+      {% endif %}
+
+      {% endwith %}
+    </nav>
+
+    <!-- ── Bottom: user card + logout ── -->
+    <div class="sidebar-bottom">
+
+      <!-- User card -->
+      <div class="sidebar-user">
+        <div class="user-avatar">{{ request.user.full_name|slice:":1"|upper }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ request.user.full_name }}</div>
+          <div class="user-role-pill">
+            <span class="role-dot"></span>
+            {{ request.user.role.name|default:"Super Admin" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Logout -->
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="nav-item nav-logout w-100">
+          <span class="nav-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </span>
+          Log Out
+        </button>
+      </form>
+
+    </div>
+
+  </aside>
+
+  <!-- ═══════ MAIN CONTENT ═══════ -->
+  <div class="main-content">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" id="sidebarToggle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="6"  x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <div>
+          <div class="page-title">{% block page_title %}Dashboard{% endblock %}</div>
+          <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">Home</a>
+            {% block breadcrumb %}{% endblock %}
+          </div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-btn" title="{{ request.user.department.name|default:'All Departments' }}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div class="topbar-btn topbar-avatar" title="{{ request.user.full_name }}">
+          {{ request.user.full_name|slice:":1"|upper }}
+        </div>
+      </div>
+    </header>
+
+    <main class="page-body">
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags }}" data-auto-dismiss>
+          <span>{{ msg }}</span>
+        </div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

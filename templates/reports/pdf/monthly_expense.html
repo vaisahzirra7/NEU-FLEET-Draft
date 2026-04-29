@@ -1,0 +1,67 @@
+{% extends "reports/pdf/_base.html" %}
+{% block doc_title %}Monthly Expense Report{% endblock %}
+{% block page_label %}Monthly Expense Report{% endblock %}
+{% block report_title %}Monthly Expense Report{% endblock %}
+{% block back_url %}{% url 'reports:monthly_expense' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}{% endblock %}
+
+{% block content %}
+<div class="kpi-grid cols-3">
+  <div class="kpi"><div class="kpi-value">&#8358;{{ total_fuel|floatformat:2 }}</div><div class="kpi-label">Total Fuel Spend</div><div class="kpi-sub">{{ fuel_logs|length }} transactions</div></div>
+  <div class="kpi blue"><div class="kpi-value">&#8358;{{ total_maint|floatformat:2 }}</div><div class="kpi-label">Total Maintenance</div><div class="kpi-sub">{{ maint_records|length }} records</div></div>
+  <div class="kpi navy"><div class="kpi-value">&#8358;{{ total_spend|floatformat:2 }}</div><div class="kpi-label">Grand Total</div></div>
+</div>
+
+<div class="section-title">Fuel Transactions</div>
+<table class="report-table">
+  <thead>
+    <tr>
+      <th>Date</th><th>Coupon ID</th><th>Vehicle</th><th>Driver</th>
+      <th class="r">Litres</th><th class="r">Cost (&#8358;)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in fuel_logs %}
+    <tr>
+      <td>{{ l.fuel_date|date:"d/m/Y" }}</td>
+      <td class="mono bold">{{ l.coupon.coupon_id }}</td>
+      <td class="bold">{{ l.vehicle.plate_number }}</td>
+      <td>{{ l.driver.full_name }}</td>
+      <td class="r">{{ l.actual_litres }} L</td>
+      <td class="r navy">{{ l.actual_cost|floatformat:2 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" class="muted" style="padding:16px;text-align:center;">No fuel transactions in this period.</td></tr>
+    {% endfor %}
+  </tbody>
+  {% if fuel_logs %}
+  <tfoot><tr><td colspan="5">FUEL TOTAL</td><td class="r amber">{{ total_fuel|floatformat:2 }}</td></tr></tfoot>
+  {% endif %}
+</table>
+
+<div class="section-title">Maintenance Records</div>
+<table class="report-table">
+  <thead>
+    <tr>
+      <th>Date</th><th>Vehicle</th><th>Service Type</th><th>Vendor</th>
+      <th class="r">Cost (&#8358;)</th><th>Approved By</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in maint_records %}
+    <tr>
+      <td>{{ r.service_date|date:"d/m/Y" }}</td>
+      <td class="bold">{{ r.vehicle.plate_number }}</td>
+      <td><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
+      <td>{{ r.effective_vendor_name }}</td>
+      <td class="r navy">{{ r.total_cost|floatformat:2 }}</td>
+      <td class="muted">{{ r.approved_by }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" class="muted" style="padding:16px;text-align:center;">No maintenance records in this period.</td></tr>
+    {% endfor %}
+  </tbody>
+  {% if maint_records %}
+  <tfoot><tr><td colspan="4">MAINTENANCE TOTAL</td><td class="r amber">{{ total_maint|floatformat:2 }}</td><td></td></tr></tfoot>
+  {% endif %}
+</table>
+{% endblock %}

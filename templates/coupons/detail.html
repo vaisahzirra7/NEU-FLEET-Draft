@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ coupon.coupon_id }}{% endblock %}
+{% block page_title %}Coupon {{ coupon.coupon_id }}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'coupons:list' %}">Fuel Coupons</a>
+  <span class="sep">›</span> {{ coupon.coupon_id }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ coupon.coupon_id }}</h1>
+    <p>{{ coupon.vehicle.plate_number }} &nbsp;·&nbsp; {{ coupon.driver.full_name }} &nbsp;·&nbsp; {{ coupon.issue_datetime|date:"j M Y H:i" }}</p>
+  </div>
+  <div class="d-flex gap-1">
+    <a href="{% url 'coupons:print_slip' coupon.pk %}" target="_blank" class="btn btn-outline">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print Slip
+    </a>
+    {% if coupon.status == "issued" and can_redeem %}
+    <a href="{% url 'fuel_logs:create' %}?coupon={{ coupon.coupon_id }}" class="btn btn-primary">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      Redeem / Log Fuel
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="dash-grid">
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Coupon details -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Coupon Details</div>
+        <span class="badge {% if coupon.status == 'redeemed' %}badge-success{% elif coupon.status == 'issued' %}badge-amber{% elif coupon.status == 'cancelled' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:.8rem;padding:.3rem .8rem;">
+          {{ coupon.get_status_display }}
+        </span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="data-table">
+          <tbody>
+            <tr><td style="color:var(--text-muted);width:40%;">Coupon ID</td><td><span class="coupon-id">{{ coupon.coupon_id }}</span></td></tr>
+            <tr><td style="color:var(--text-muted);">Verification Code</td><td><span class="coupon-id">{{ coupon.verification_code }}</span></td></tr>
+            <tr><td style="color:var(--text-muted);">Vehicle</td><td><a href="{% url 'vehicles:detail' coupon.vehicle.pk %}">{{ coupon.vehicle.plate_number }} — {{ coupon.vehicle.make }} {{ coupon.vehicle.model }}</a></td></tr>
+            <tr><td style="color:var(--text-muted);">Driver</td><td>{{ coupon.driver.full_name }} ({{ coupon.driver.staff_id }})</td></tr>
+            <tr><td style="color:var(--text-muted);">Fuel Station</td><td>{{ coupon.fuel_station.name }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Litres Authorised</td><td class="fw-600">{{ coupon.litres }} L</td></tr>
+            <tr><td style="color:var(--text-muted);">Cost per Litre</td><td>₦ {{ coupon.cost_per_litre|floatformat:2 }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Total Value</td><td class="fw-600" style="color:var(--navy);">₦ {{ coupon.total_value|floatformat:2 }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Issued By</td><td>{{ coupon.issued_by.full_name }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Issue Date & Time</td><td>{{ coupon.issue_datetime|date:"j M Y \a\t H:i" }}</td></tr>
+            {% if coupon.expiry_date %}
+            <tr>
+              <td style="color:var(--text-muted);">Expiry Date</td>
+              <td>{% if coupon.is_expired_by_date %}<span class="badge badge-danger">Expired — {{ coupon.expiry_date }}</span>{% else %}{{ coupon.expiry_date }}{% endif %}</td>
+            </tr>
+            {% endif %}
+            {% if coupon.purpose %}
+            <tr><td style="color:var(--text-muted);">Purpose</td><td>{{ coupon.purpose }}</td></tr>
+            {% endif %}
+            {% if coupon.cancellation_reason %}
+            <tr><td style="color:var(--text-muted);">Cancellation Reason</td><td class="text-danger">{{ coupon.cancellation_reason }}</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Fuel log if redeemed -->
+    {% if coupon.status == "redeemed" %}
+    <div class="card">
+      <div class="card-header"><div class="card-title">Fuel Log (Redemption Record)</div></div>
+      <div class="card-body" style="padding:0;">
+        <table class="data-table">
+          <tbody>
+            <tr><td style="color:var(--text-muted);width:40%;">Date Fuelled</td><td>{{ coupon.fuel_log.fuel_date }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Actual Litres</td><td class="fw-600">{{ coupon.fuel_log.actual_litres }} L</td></tr>
+            <tr><td style="color:var(--text-muted);">Actual Cost</td><td class="fw-600">₦ {{ coupon.fuel_log.actual_cost|floatformat:2 }}</td></tr>
+            <tr><td style="color:var(--text-muted);">Logged By</td><td>{{ coupon.fuel_log.logged_by.full_name }}</td></tr>
+            {% if coupon.fuel_log.notes %}<tr><td style="color:var(--text-muted);">Notes</td><td>{{ coupon.fuel_log.notes }}</td></tr>{% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right: cancel panel -->
+  <div>
+    {% if coupon.status == "issued" and can_edit %}
+    <div class="card" style="border-top:3px solid var(--danger);">
+      <div class="card-header"><div class="card-title text-danger">Cancel Coupon</div></div>
+      <div class="card-body">
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1rem;">Cancelling this coupon voids it permanently. It will not be counted in any expense report. A reason is required.</p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="cancel">
+          <div class="form-group">
+            <label class="form-label">Cancellation Reason <span class="req">*</span></label>
+            <textarea name="cancel_reason" class="form-control" rows="3" placeholder="e.g. Trip cancelled, wrong vehicle selected..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-danger"
+            onclick="return confirm('Cancel coupon {{ coupon.coupon_id }}? This cannot be undone.')">
+            Cancel This Coupon
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

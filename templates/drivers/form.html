@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}Edit{% else %}Add{% endif %} Driver{% endblock %}
+{% block page_title %}{% if obj %}Edit Driver{% else %}Register Driver{% endif %}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'drivers:list' %}">Drivers</a>
+  <span class="sep">›</span> {% if obj %}Edit {{ obj.full_name }}{% else %}Register{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if obj %}Edit — {{ obj.full_name }}{% else %}Register New Driver{% endif %}</div>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Full Name <span class="req">*</span></label>
+            <input type="text" name="full_name" class="form-control {% if errors.full_name %}field-error{% endif %}"
+              value="{% if obj %}{{ obj.full_name }}{% elif full_name_val %}{{ full_name_val }}{% endif %}" placeholder="e.g. Musa Ibrahim">
+            {% if errors.full_name %}<div class="error-msg">{{ errors.full_name }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Staff ID <span class="req">*</span></label>
+            <input type="text" name="staff_id" class="form-control {% if errors.staff_id %}field-error{% endif %}"
+              value="{% if obj %}{{ obj.staff_id }}{% elif staff_id_val %}{{ staff_id_val }}{% endif %}" placeholder="University staff ID"
+              {% if obj %}readonly style="background:var(--surface-2);color:var(--text-muted);"{% endif %}>
+            {% if errors.staff_id %}<div class="error-msg">{{ errors.staff_id }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number <span class="req">*</span></label>
+          <input type="text" name="phone" class="form-control {% if errors.phone %}field-error{% endif %}"
+            value="{% if obj %}{{ obj.phone }}{% elif phone_val %}{{ phone_val }}{% endif %}" placeholder="e.g. 0801 234 5678">
+          {% if errors.phone %}<div class="error-msg">{{ errors.phone }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">License Number <span class="req">*</span></label>
+            <input type="text" name="license_no" class="form-control {% if errors.license_no %}field-error{% endif %}"
+              value="{% if obj %}{{ obj.license_no }}{% elif license_no_val %}{{ license_no_val }}{% endif %}" placeholder="Driver's license number"
+              {% if obj %}readonly style="background:var(--surface-2);color:var(--text-muted);"{% endif %}>
+            {% if errors.license_no %}<div class="error-msg">{{ errors.license_no }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">License Class <span class="req">*</span></label>
+            <select name="license_class" class="form-select {% if errors.license_class %}field-error{% endif %}">
+              <option value="">— Select —</option>
+              {% for val, label in license_classes %}
+              <option value="{{ val }}" {% if obj.license_class == val %}selected{% elif not obj and val == license_class_val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.license_class %}<div class="error-msg">{{ errors.license_class }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">License Expiry Date <span class="req">*</span></label>
+            <input type="date" name="license_expiry" class="form-control {% if errors.license_expiry %}field-error{% endif %}"
+              value="{% if obj %}{{ obj.license_expiry|date:'Y-m-d' }}{% elif license_expiry_val %}{{ license_expiry_val }}{% endif %}">
+            {% if errors.license_expiry %}<div class="error-msg">{{ errors.license_expiry }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+              {% for val, label in status_choices %}
+              <option value="{{ val }}" {% if obj.status == val %}selected{% elif not obj and status_val and val == status_val %}selected{% elif not obj and not status_val and val == "active" %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="Any additional remarks...">{% if obj %}{{ obj.notes }}{% elif notes_val %}{{ notes_val }}{% endif %}</textarea>
+        </div>
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn btn-primary">{% if obj %}Save Changes{% else %}Register Driver{% endif %}</button>
+          <a href="{% if obj %}{% url 'drivers:detail' obj.pk %}{% else %}{% url 'drivers:list' %}{% endif %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

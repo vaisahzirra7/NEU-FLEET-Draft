@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}Edit Department{% else %}Add Department{% endif %}{% endblock %}
+{% block page_title %}{% if obj %}Edit Department{% else %}Add Department{% endif %}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'accounts:departments' %}">Departments</a>
+  <span class="sep">›</span> {% if obj %}{{ obj.name }}{% else %}Add{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:500px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        {% if obj %}Edit — {{ obj.name }}{% else %}Add New Department/Unit{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+
+      {% if obj %}
+      <div style="display:flex;gap:1rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+        <div style="flex:1;text-align:center;padding:.75rem;background:var(--surface-2);border-radius:var(--radius);">
+          <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">{{ obj.vehicles.count }}</div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem;">Vehicles</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:.75rem;background:var(--surface-2);border-radius:var(--radius);">
+          <div style="font-size:1.4rem;font-weight:700;color:var(--navy);">{{ obj.users.count }}</div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem;">Users</div>
+        </div>
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Department/Unit Name <span class="req">*</span></label>
+          <input type="text" name="name"
+            class="form-control {% if errors.name %}field-error{% endif %}"
+            value="{% if obj %}{{ obj.name }}{% elif name_value %}{{ name_value }}{% endif %}"
+            placeholder="e.g. Transport Department">
+          {% if errors.name %}<div class="error-msg">{{ errors.name }}</div>{% endif %}
+          <div class="form-hint">Name of the department or unit vehicle belongs to.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Department Code <span class="req">*</span></label>
+          <input type="text" name="code"
+            class="form-control font-mono {% if errors.code %}field-error{% endif %}"
+            value="{% if obj %}{{ obj.code }}{% elif code_value %}{{ code_value }}{% endif %}"
+            placeholder="e.g. TRANSPORT" style="text-transform:uppercase;">
+          {% if errors.code %}<div class="error-msg">{{ errors.code }}</div>{% endif %}
+          <div class="form-hint">Short uppercase code used across the system.</div>
+        </div>
+
+        <div class="d-flex gap-1 mt-2" style="flex-wrap:wrap;">
+          <button type="submit" class="btn btn-primary">
+            {% if obj %}Save Changes{% else %}Create Department{% endif %}
+          </button>
+          <a href="{% url 'accounts:departments' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+
+      {% if obj %}
+      <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_active">
+          <button type="submit" class="btn {% if obj.is_active %}btn-outline{% else %}btn-success{% endif %} btn-sm">
+            {% if obj.is_active %}Deactivate Department{% else %}Activate Department{% endif %}
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

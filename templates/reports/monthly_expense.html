@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Monthly Expense{% endblock %}
+{% block page_title %}Monthly Expense Report{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a> <span class="sep">›</span> Monthly Expense{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left"><h1>Monthly Expense Report</h1><p>{{ date_from|date:"j M Y" }} — {{ date_to|date:"j M Y" }}</p></div>
+</div>
+{% include "reports/_filter_bar.html" %}
+
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card"><div class="stat-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 22V8l5-4 5 4v14"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_fuel|floatformat:2 }}</div><div class="stat-label">Fuel Spend</div><div class="stat-sub">{{ fuel_logs|length }} transactions</div></div></div>
+  <div class="stat-card"><div class="stat-icon info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_maint|floatformat:2 }}</div><div class="stat-label">Maintenance Spend</div><div class="stat-sub">{{ maint_records|length }} records</div></div></div>
+  <div class="stat-card"><div class="stat-icon navy"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_spend|floatformat:2 }}</div><div class="stat-label">Total Spend</div></div></div>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header"><div class="card-title">Fuel Transactions</div></div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Coupon ID</th><th>Vehicle</th><th>Driver</th><th>Station</th><th>Litres</th><th>Cost</th></tr></thead>
+      <tbody>
+        {% for log in fuel_logs %}
+        <tr>
+          <td>{{ log.fuel_date|date:"j M Y" }}</td>
+          <td><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
+          <td><a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a></td>
+          <td>{{ log.driver.full_name }}</td>
+          <td>{{ log.fuel_station.name|default:"—" }}</td>
+          <td>{{ log.actual_litres }} L</td>
+          <td class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No fuel transactions in this period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Maintenance Records</div></div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Vehicle</th><th>Type</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
+      <tbody>
+        {% for rec in maint_records %}
+        <tr>
+          <td>{{ rec.service_date|date:"j M Y" }}</td>
+          <td><a href="{% url 'vehicles:detail' rec.vehicle.pk %}">{{ rec.vehicle.plate_number }}</a></td>
+          <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
+          <td>{{ rec.effective_vendor_name }}</td>
+          <td class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
+          <td style="color:var(--text-muted);">{{ rec.approved_by }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No maintenance records in this period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Drivers{% endblock %}
+{% block page_title %}Drivers{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Drivers{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Driver Register</h1>
+    <p>All registered vehicle operators</p>
+  </div>
+  {% if can_write %}
+  <a href="{% url 'drivers:create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Driver
+  </a>
+  {% endif %}
+</div>
+
+<div class="card mb-2" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar">
+      <div class="search-wrap">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Search name, staff ID, license..." class="form-control">
+      </div>
+      <select name="status" class="form-select" style="width:auto;">
+        <option value="">All Statuses</option>
+        <option value="active"   {% if status_filter == "active" %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+      </select>
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if q or status_filter %}<a href="{% url 'drivers:list' %}" class="btn btn-outline">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Staff ID</th>
+          <th>Phone</th>
+          <th>License No.</th>
+          <th>Class</th>
+          <th>License Expiry</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in drivers %}
+        <tr>
+          <td>
+            <a href="{% url 'drivers:detail' d.pk %}" class="fw-600" style="color:var(--navy);">{{ d.full_name }}</a>
+          </td>
+          <td class="font-mono" style="font-size:.78rem;">{{ d.staff_id }}</td>
+          <td>{{ d.phone }}</td>
+          <td class="font-mono" style="font-size:.78rem;">{{ d.license_no }}</td>
+          <td>{{ d.get_license_class_display }}</td>
+          <td>
+            {% if d.is_license_expired %}
+              <span class="badge badge-danger">Expired {{ d.license_expiry }}</span>
+            {% elif d.is_license_expiring_soon %}
+              <span class="badge badge-warning">{{ d.license_expiry }} ({{ d.days_until_license_expiry }}d)</span>
+            {% else %}
+              {{ d.license_expiry }}
+            {% endif %}
+          </td>
+          <td>
+            {% if d.status == "active" %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge badge-muted">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{% url 'drivers:detail' d.pk %}" class="btn btn-outline btn-sm">View</a>
+              {% if can_write %}<a href="{% url 'drivers:edit' d.pk %}" class="btn btn-outline btn-sm">Edit</a>{% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">
+          <div class="empty-state">
+            <span class="empty-icon">👤</span>
+            <div class="empty-title">No drivers found</div>
+            <div class="empty-sub">{% if q %}Try a different search.{% else %}Register your first driver to get started.{% endif %}</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

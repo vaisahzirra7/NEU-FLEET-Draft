@@ -1,0 +1,40 @@
+{% extends "reports/pdf/_base.html" %}
+{% block doc_title %}Maintenance History{% endblock %}
+{% block page_label %}Maintenance History{% endblock %}
+{% block report_title %}Maintenance History Report{% endblock %}
+{% block back_url %}{% url 'reports:maintenance_report' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}{% endblock %}
+
+{% block content %}
+<div class="kpi-grid cols-2">
+  <div class="kpi blue"><div class="kpi-value">{{ records|length }}</div><div class="kpi-label">Total Records</div></div>
+  <div class="kpi navy"><div class="kpi-value">&#8358;{{ total_cost|floatformat:2 }}</div><div class="kpi-label">Total Cost</div></div>
+</div>
+
+<div class="section-title">All Maintenance Records</div>
+<table class="report-table">
+  <thead>
+    <tr>
+      <th>Date</th><th>Plate No.</th><th>Service Type</th><th>Description</th>
+      <th>Vendor</th><th class="r">Cost (&#8358;)</th><th>Approved By</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in records %}
+    <tr>
+      <td>{{ r.service_date|date:"d/m/Y" }}</td>
+      <td class="bold">{{ r.vehicle.plate_number }}</td>
+      <td><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
+      <td style="max-width:180px;">{{ r.description|truncatechars:50 }}</td>
+      <td>{{ r.effective_vendor_name }}</td>
+      <td class="r navy">{{ r.total_cost|floatformat:2 }}</td>
+      <td class="muted">{{ r.approved_by }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" class="muted" style="padding:16px;text-align:center;">No records in this period.</td></tr>
+    {% endfor %}
+  </tbody>
+  {% if records %}
+  <tfoot><tr><td colspan="5">TOTAL</td><td class="r amber">{{ total_cost|floatformat:2 }}</td><td></td></tr></tfoot>
+  {% endif %}
+</table>
+{% endblock %}

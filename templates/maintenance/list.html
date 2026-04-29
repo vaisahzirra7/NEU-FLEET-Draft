@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Maintenance{% endblock %}
+{% block page_title %}Maintenance{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Maintenance{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Maintenance Records</h1>
+    <p>All vehicle service and repair history</p>
+  </div>
+  {% if can_write %}
+  <a href="{% url 'maintenance:create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Record
+  </a>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar">
+      <div class="search-wrap">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Plate, description, vendor..." class="form-control">
+      </div>
+      <select name="type" class="form-select" style="width:auto;">
+        <option value="">All Types</option>
+        {% for val, label in service_choices %}
+        <option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if q or type_filter %}<a href="{% url 'maintenance:list' %}" class="btn btn-outline">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Vehicle</th>
+          <th>Date</th>
+          <th>Service Type</th>
+          <th>Description</th>
+          <th>Vendor</th>
+          <th>Cost</th>
+          <th>Next Service</th>
+          <th>Approved By</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td><a href="{% url 'vehicles:detail' r.vehicle.pk %}" class="fw-600">{{ r.vehicle.plate_number }}</a></td>
+          <td>{{ r.service_date|date:"j M Y" }}</td>
+          <td><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
+          <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.description }}</td>
+          <td>{{ r.effective_vendor_name }}</td>
+          <td class="fw-600">₦ {{ r.total_cost|floatformat:2 }}</td>
+          <td>
+            {% if r.next_service_date %}
+              {% if r.is_service_due_soon %}
+                <span class="badge badge-warning">{{ r.next_service_date }}</span>
+              {% else %}
+                <span style="font-size:.8rem;">{{ r.next_service_date }}</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:.78rem;">{{ r.approved_by }}</td>
+          <td>
+            <a href="{% url 'maintenance:detail' r.pk %}" class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9">
+          <div class="empty-state">
+            <span class="empty-icon">🔧</span>
+            <div class="empty-title">No maintenance records yet</div>
+            <div class="empty-sub">Log your first vehicle service to get started.</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

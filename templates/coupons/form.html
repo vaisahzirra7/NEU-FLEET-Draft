@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Issue Fuel Coupon{% endblock %}
+{% block page_title %}Issue Fuel Coupon{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'coupons:list' %}">Fuel Coupons</a>
+  <span class="sep">›</span> Issue
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+<style>
+.select2-container .select2-selection--single{height:38px;border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
+.select2-container--default .select2-selection--single .select2-selection__rendered{line-height:36px;color:var(--text);padding-left:.82rem;}
+.select2-container--default .select2-selection--single .select2-selection__arrow{height:36px;right:8px;}
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--open .select2-selection--single{border-color:var(--navy-light);box-shadow:0 0 0 3px rgba(26,50,96,.1);}
+.select2-dropdown{border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
+.select2-container--default .select2-results__option--highlighted[aria-selected]{background-color:var(--navy);}
+.select2-search--dropdown .select2-search__field{border:1px solid var(--border-dark);border-radius:var(--radius);padding:.4rem .7rem;font-family:var(--font);font-size:.84rem;}
+.total-display{background:var(--navy);color:#fff;border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;}
+.total-label{font-size:.8rem;color:rgba(255,255,255,.6);}
+.total-value{font-size:1.6rem;font-weight:700;color:var(--amber-light);font-variant-numeric:tabular-nums;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>
+        Issue New Fuel Coupon
+      </div>
+    </div>
+    <div class="card-body">
+
+      <!-- Live total -->
+      <div class="total-display">
+        <div>
+          <div class="total-label">Coupon Total Value</div>
+          <div class="total-value" id="total-value-display">₦ 0.00</div>
+        </div>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5" stroke-linecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Vehicle & Driver</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Vehicle <span class="req">*</span></label>
+              <select name="vehicle" id="id_vehicle" class="form-select {% if errors.vehicle %}field-error{% endif %}">
+                <option value="">— Select Vehicle —</option>
+                {% for v in vehicles %}
+                <option value="{{ v.pk }}"
+                  data-driver-id="{{ v.default_driver_id|default:'' }}"
+                  data-driver-name="{{ v.default_driver.full_name|default:'' }}"
+                  {% if preselect_vehicle == v.pk|stringformat:"s" %}selected
+                  {% elif post.vehicle == v.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ v.plate_number }} — {{ v.make }} {{ v.model }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if errors.vehicle %}<div class="error-msg">{{ errors.vehicle }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Driver <span class="req">*</span>
+                <span id="driver-autofill-badge" style="display:none;font-size:.65rem;font-weight:500;color:var(--success);margin-left:.4rem;">✓ Auto-filled from vehicle</span>
+              </label>
+              <select name="driver" id="id_driver" class="form-select {% if errors.driver %}field-error{% endif %}">
+                <option value="">— Select Driver —</option>
+                {% for d in drivers %}
+                <option value="{{ d.pk }}" {% if post.driver == d.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ d.full_name }} ({{ d.staff_id }})
+                </option>
+                {% endfor %}
+              </select>
+              <div class="form-hint">Select the vehicle first — the default driver will auto-fill. You can override it.</div>
+              {% if errors.driver %}<div class="error-msg">{{ errors.driver }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Fuel Details</div>
+          <div class="form-group">
+            <label class="form-label">Fuel Station <span class="req">*</span></label>
+            <select name="fuel_station" id="id_station" class="form-select {% if errors.fuel_station %}field-error{% endif %}">
+              <option value="">— Select Fuel Station —</option>
+              {% for s in fuel_stations %}
+              <option value="{{ s.pk }}" {% if post.fuel_station == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.fuel_station %}<div class="error-msg">{{ errors.fuel_station }}</div>{% endif %}
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Litres Authorised <span class="req">*</span></label>
+              <input type="number" name="litres" id="id_litres" step="0.01" min="0.01"
+                class="form-control {% if errors.litres %}field-error{% endif %}"
+                value="{% if post.litres %}{{ post.litres }}{% endif %}"
+                placeholder="e.g. 50.00">
+              {% if errors.litres %}<div class="error-msg">{{ errors.litres }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cost per Litre (₦) <span class="req">*</span></label>
+              <input type="number" name="cost_per_litre" id="id_cost_per_litre" step="0.01" min="0.01"
+                class="form-control {% if errors.cost_per_litre %}field-error{% endif %}"
+                value="{% if post.cost_per_litre %}{{ post.cost_per_litre }}{% endif %}"
+                placeholder="e.g. 850.00">
+              {% if errors.cost_per_litre %}<div class="error-msg">{{ errors.cost_per_litre }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.25rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Optional</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Expiry Date</label>
+              <input type="date" name="expiry_date" class="form-control"
+                value="{% if post.expiry_date %}{{ post.expiry_date }}{% endif %}">
+              <div class="form-hint">Leave blank for no expiry.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Purpose / Notes</label>
+              <input type="text" name="purpose" class="form-control"
+                value="{% if post.purpose %}{{ post.purpose }}{% endif %}"
+                placeholder="e.g. VC airport run">
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-1">
+          <button type="submit" class="btn btn-amber">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>
+            Issue Coupon & Print
+          </button>
+          <a href="{% url 'coupons:list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+<script>
+$(function() {
+  const s2 = { width: '100%' };
+
+  $('#id_vehicle').select2({ ...s2, placeholder: '— Select Vehicle —' });
+  $('#id_driver').select2({ ...s2, placeholder: '— Select Driver —' });
+  $('#id_station').select2({ ...s2, placeholder: '— Select Fuel Station —' });
+
+  // Auto-fill driver when vehicle changes
+  $('#id_vehicle').on('change', function() {
+    const sel      = document.getElementById('id_vehicle');
+    const opt      = sel.options[sel.selectedIndex];
+    const driverId = opt ? opt.getAttribute('data-driver-id') : '';
+    const badge    = document.getElementById('driver-autofill-badge');
+
+    if (driverId) {
+      $('#id_driver').val(driverId).trigger('change');
+      if (badge) badge.style.display = 'inline';
+    } else {
+      if (badge) badge.style.display = 'none';
+    }
+  });
+
+  // If vehicle already preselected on load, auto-fill driver immediately
+  if ($('#id_vehicle').val()) {
+    $('#id_vehicle').trigger('change');
+  }
+
+  // Live total calculation
+  function updateTotal() {
+    const l = parseFloat($('#id_litres').val()) || 0;
+    const c = parseFloat($('#id_cost_per_litre').val()) || 0;
+    const el = document.getElementById('total-value-display');
+    if (el) el.textContent = '₦ ' + (l * c).toLocaleString('en-NG', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  $('#id_litres, #id_cost_per_litre').on('input', updateTotal);
+  updateTotal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block page_title %}Access Denied{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body empty-state" style="padding:3rem;">
+  <span class="empty-icon" style="font-size:3rem;">🔒</span>
+  <div class="empty-title">You don't have permission to view this page</div>
+  <div class="empty-sub" style="margin-top:.5rem;">Contact your administrator if you think this is a mistake.</div>
+  <a href="/dashboard/" class="btn btn-outline" style="margin-top:1.25rem;">Back to Dashboard</a>
+</div></div>
+{% endblock %}

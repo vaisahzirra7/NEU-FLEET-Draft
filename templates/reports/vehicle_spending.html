@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Vehicle Spending{% endblock %}
+{% block page_title %}Per-Vehicle Spending{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a>
+  <span class="sep">›</span> Per-Vehicle Spending
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Per-Vehicle Spending</h1>
+    <p>Fuel and maintenance cost breakdown per vehicle</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar" style="flex-wrap:wrap;">
+      <div class="form-group" style="margin-bottom:0;min-width:160px;">
+        <label class="form-label" style="margin-bottom:.25rem;">From</label>
+        <input type="date" name="date_from" class="form-control" value="{{ date_from|date:'Y-m-d' }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0;min-width:160px;">
+        <label class="form-label" style="margin-bottom:.25rem;">To</label>
+        <input type="date" name="date_to" class="form-control" value="{{ date_to|date:'Y-m-d' }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0;min-width:200px;">
+        <label class="form-label" style="margin-bottom:.25rem;">Vehicle</label>
+        <select name="vehicle" class="form-select" id="id_vehicle_filter">
+          <option value="">All Vehicles</option>
+          {% for v in vehicles %}
+          <option value="{{ v.pk }}" {% if vehicle_filter == v.pk|stringformat:"s" %}selected{% endif %}>
+            {{ v.plate_number }} — {{ v.make }} {{ v.model }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:.65rem;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a href="?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&vehicle={{ vehicle_filter }}&format=excel" class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </a>
+        <a href="?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&vehicle={{ vehicle_filter }}&format=pdf" class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </a>
+        {% if vehicle_filter or request.GET.date_from %}
+        <a href="{% url 'reports:vehicle_spending' %}" class="btn btn-outline">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+<script>$(function(){ $('#id_vehicle_filter').select2({ width:'100%', placeholder:'All Vehicles', allowClear:true }); });</script>
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+<style>
+.select2-container .select2-selection--single{height:38px;border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
+.select2-container--default .select2-selection--single .select2-selection__rendered{line-height:36px;color:var(--text);padding-left:.82rem;}
+.select2-container--default .select2-selection--single .select2-selection__arrow{height:36px;right:8px;}
+.select2-container--default.select2-container--focus .select2-selection--single{border-color:var(--navy-light);box-shadow:0 0 0 3px rgba(26,50,96,.1);}
+.select2-dropdown{border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
+.select2-container--default .select2-results__option--highlighted[aria-selected]{background-color:var(--navy);}
+</style>
+{% endblock %}
+
+<!-- Summary -->
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card">
+    <div class="stat-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 22V8l5-4 5 4v14"/></svg></div>
+    <div class="stat-body"><div class="stat-value">₦ {{ grand_fuel|floatformat:2 }}</div><div class="stat-label">Total Fuel Spend</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+    <div class="stat-body"><div class="stat-value">₦ {{ grand_maint|floatformat:2 }}</div><div class="stat-label">Total Maintenance</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    <div class="stat-body"><div class="stat-value">₦ {{ grand_total|floatformat:2 }}</div><div class="stat-label">Grand Total</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon success"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+    <div class="stat-body"><div class="stat-value">{{ rows|length }}</div><div class="stat-label">Vehicles with Activity</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Vehicle Breakdown — {{ date_from|date:"j M Y" }} to {{ date_to|date:"j M Y" }}</div>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Plate No.</th>
+          <th>Vehicle</th>
+          <th>Department</th>
+          <th>Fuel Litres</th>
+          <th>Fuel Cost</th>
+          <th>Maintenance</th>
+          <th>Total Spend</th>
+          <th>% of Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="color:var(--text-muted);font-size:.78rem;">{{ forloop.counter }}</td>
+          <td><a href="{% url 'vehicles:detail' r.vehicle.pk %}" class="fw-600">{{ r.vehicle.plate_number }}</a></td>
+          <td>{{ r.vehicle.make }} {{ r.vehicle.model }}</td>
+          <td>{{ r.vehicle.department.name }}</td>
+          <td>{{ r.fuel_litres|floatformat:1 }} L</td>
+          <td>₦ {{ r.fuel_cost|floatformat:2 }}</td>
+          <td>₦ {{ r.maint_cost|floatformat:2 }}</td>
+          <td class="fw-600" style="color:var(--navy);">₦ {{ r.total|floatformat:2 }}</td>
+          <td>
+            {% if grand_total %}
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <div style="flex:1;background:var(--border);border-radius:4px;height:6px;min-width:60px;">
+                <div style="width:{% widthratio r.total grand_total 100 %}%;background:var(--amber);height:6px;border-radius:4px;"></div>
+              </div>
+              <span style="font-size:.75rem;color:var(--text-muted);">{% widthratio r.total grand_total 100 %}%</span>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9">
+          <div class="empty-state"><span class="empty-icon">📊</span><div class="empty-title">No data for this period</div><div class="empty-sub">Try a different date range.</div></div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr style="background:var(--surface-2);font-weight:700;">
+          <td colspan="4" class="fw-700" style="padding:.75rem 1rem;">TOTAL</td>
+          <td style="padding:.75rem 1rem;"></td>
+          <td style="padding:.75rem 1rem;">₦ {{ grand_fuel|floatformat:2 }}</td>
+          <td style="padding:.75rem 1rem;">₦ {{ grand_maint|floatformat:2 }}</td>
+          <td style="padding:.75rem 1rem;color:var(--navy);">₦ {{ grand_total|floatformat:2 }}</td>
+          <td style="padding:.75rem 1rem;">100%</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}

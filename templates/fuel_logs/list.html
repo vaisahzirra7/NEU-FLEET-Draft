@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Fuel Logs{% endblock %}
+{% block page_title %}Fuel Logs{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Fuel Logs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Fuel Logs</h1>
+    <p>Completed fuel transactions (redeemed coupons)</p>
+  </div>
+  {% if can_write %}
+  <a href="{% url 'fuel_logs:create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Redeem Coupon
+  </a>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar">
+      <div class="search-wrap">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Coupon ID, plate, driver..." class="form-control">
+      </div>
+      <button type="submit" class="btn btn-outline">Search</button>
+      {% if q %}<a href="{% url 'fuel_logs:list' %}" class="btn btn-outline">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Coupon</th>
+          <th>Vehicle</th>
+          <th>Driver</th>
+          <th>Fuel Station</th>
+          <th>Date</th>
+          <th>Litres</th>
+          <th>Cost</th>
+          <th>Logged By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
+          <td><a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a></td>
+          <td>{{ log.driver.full_name }}</td>
+          <td>{{ log.fuel_station.name|default:"—" }}</td>
+          <td>{{ log.fuel_date|date:"j M Y" }}</td>
+          <td>{{ log.actual_litres }} L</td>
+          <td class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
+          <td style="color:var(--text-muted);font-size:.78rem;">{{ log.logged_by.full_name }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">
+          <div class="empty-state">
+            <span class="empty-icon">⛽</span>
+            <div class="empty-title">No fuel logs yet</div>
+            <div class="empty-sub">Redeem an issued coupon to create a fuel log.</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+<a href="{% url url %}" class="report-card-link">
+  <div class="card report-card">
+    <div class="card-body">
+      <div style="font-size:2rem;margin-bottom:.75rem;">{{ icon }}</div>
+      <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:.35rem;">{{ title }}</div>
+      <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">{{ desc }}</div>
+      <div style="margin-top:1rem;display:flex;align-items:center;gap:.35rem;font-size:.78rem;font-weight:600;color:var(--navy-light);">
+        Open Report
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+  </div>
+</a>
+
+{% block extra_css %}
+<style>
+.report-card-link { text-decoration: none; }
+.report-card { transition: box-shadow .18s, transform .18s; cursor: pointer; }
+.report-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+</style>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Maintenance Record{% endblock %}
+{% block page_title %}Maintenance Record{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">></span> <a href="{% url 'maintenance:list' %}">Maintenance</a>
+  <span class="sep">></span> {{ rec.vehicle.plate_number }}
+{% endblock %}
+{% block content %}
+<div style="max-width:640px;">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>{{ rec.get_service_type_display }}</h1>
+      <p>{{ rec.vehicle.plate_number }} - {{ rec.service_date|date:"j M Y" }}</p>
+    </div>
+    <a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="btn btn-outline">Back to Vehicle</a>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Record Details</div>
+      <span class="badge badge-navy">{{ rec.get_service_type_display }}</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <tbody>
+          <tr><td style="color:var(--text-muted);width:38%;">Vehicle</td><td class="fw-600">{{ rec.vehicle.plate_number }} - {{ rec.vehicle.make }} {{ rec.vehicle.model }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Date of Service</td><td>{{ rec.service_date|date:"j F Y" }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Service Type</td><td>{{ rec.get_service_type_display }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Description</td><td>{{ rec.description }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Vendor / Mechanic</td><td>{{ rec.effective_vendor_name }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Total Cost</td><td class="fw-600" style="color:var(--navy);">N{{ rec.total_cost|floatformat:2 }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Next Service</td><td>{% if rec.next_service_date %}{% if rec.is_service_due_soon %}<span class="badge badge-warning">{{ rec.next_service_date }} - due soon</span>{% else %}{{ rec.next_service_date }}{% endif %}{% else %}--{% endif %}</td></tr>
+          <tr><td style="color:var(--text-muted);">Approved By</td><td>{{ rec.approved_by }}</td></tr>
+          {% if rec.notes %}<tr><td style="color:var(--text-muted);">Notes</td><td>{{ rec.notes }}</td></tr>{% endif %}
+          <tr><td style="color:var(--text-muted);">Logged By</td><td>{{ rec.created_by.full_name }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Date Logged</td><td style="color:var(--text-muted);font-size:.8rem;">{{ rec.created_at|date:"j M Y" }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div style="margin-top:1rem;padding:.75rem 1rem;border-radius:var(--radius);border-left:3px solid var(--info);background:var(--info-bg);font-size:.8rem;color:var(--info);">
+    <strong>Note:</strong> Maintenance records are permanent and cannot be edited. Log a new record with corrected information if needed.
+  </div>
+</div>
+{% endblock %}
