@@ -112,6 +112,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ── Default PK ────────────────────────────────────────────────
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+# Report Logo Settings
+REPORT_LOGO_PATH = BASE_DIR / "static" / "images" / "neu_logo.png"
+REPORT_LOGO_URL = "/static/images/neu_logo.png"
+
 # ── Email (optional — configure when SMTP details are available) ──
 EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'  # dev mode
 # EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'     # production

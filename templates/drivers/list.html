@@ -79,7 +79,7 @@
           <td>
             <div class="d-flex gap-1">
               <a href="{% url 'drivers:detail' d.pk %}" class="btn btn-outline btn-sm">View</a>
-              {% if can_write %}<a href="{% url 'drivers:edit' d.pk %}" class="btn btn-outline btn-sm">Edit</a>{% endif %}
+              {% if can_edit %}<a href="{% url 'drivers:edit' d.pk %}" class="btn btn-outline btn-sm">Edit</a>{% endif %}
             </div>
           </td>
         </tr>

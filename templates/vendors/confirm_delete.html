@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Delete Vendor{% endblock %}
+{% block page_title %}Delete Vendor{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'vendors:list' %}">Vendors</a>
+  <span class="sep">›</span> Delete
+{% endblock %}
+
+{% block content %}
+<div style="max-width:500px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" style="color:var(--danger);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-right:.4rem;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Delete Vendor
+      </div>
+    </div>
+    <div class="card-body">
+
+      {% if has_records %}
+      <div style="background:var(--warning-pale,#fff8ec);border:1px solid var(--amber,#e8a020);border-radius:var(--radius);padding:1rem;margin-bottom:1.25rem;">
+        <div style="font-weight:600;color:var(--warning,#a06010);margin-bottom:.4rem;">Cannot delete this vendor</div>
+        <div style="font-size:.85rem;color:var(--text-muted);">
+          <strong>{{ vendor.name }}</strong> has linked records:
+          <ul style="margin:.5rem 0 0 1rem;padding:0;">
+            {% if fuel_count %}<li>{{ fuel_count }} fuel log{{ fuel_count|pluralize }}</li>{% endif %}
+            {% if maint_count %}<li>{{ maint_count }} maintenance record{{ maint_count|pluralize }}</li>{% endif %}
+          </ul>
+        </div>
+        <div style="font-size:.82rem;margin-top:.6rem;color:var(--text-muted);">To remove this vendor from active use, <strong>deactivate</strong> it instead.</div>
+      </div>
+      <div class="d-flex gap-1">
+        <a href="{% url 'vendors:edit' vendor.pk %}" class="btn btn-outline">Deactivate Instead</a>
+        <a href="{% url 'vendors:list' %}" class="btn btn-outline">Cancel</a>
+      </div>
+
+      {% else %}
+      <p style="margin-bottom:1.25rem;color:var(--text-muted);font-size:.9rem;">
+        Are you sure you want to permanently delete <strong style="color:var(--text);">{{ vendor.name }}</strong>?
+        This action cannot be undone.
+      </p>
+      <div style="background:var(--surface-2);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.85rem;">
+        <div><span style="color:var(--text-muted);">Type:</span> <strong>{{ vendor.get_type_display }}</strong></div>
+        {% if vendor.phone %}<div style="margin-top:.3rem;"><span style="color:var(--text-muted);">Phone:</span> {{ vendor.phone }}</div>{% endif %}
+        {% if vendor.address %}<div style="margin-top:.3rem;"><span style="color:var(--text-muted);">Address:</span> {{ vendor.address }}</div>{% endif %}
+      </div>
+      <form method="post" class="d-flex gap-1">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete Vendor</button>
+        <a href="{% url 'vendors:list' %}" class="btn btn-outline">Cancel</a>
+      </form>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

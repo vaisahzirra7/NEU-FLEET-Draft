@@ -47,6 +47,7 @@ def list_view(request):
         "type_filter": service_type,
         "service_choices": MaintenanceRecord.SERVICE_CHOICES,
         "can_write": request.user.has_module_perm("maintenance", "write"),
+        "can_edit":  request.user.has_module_perm("maintenance", "edit"),
     })
 
 
@@ -119,4 +120,7 @@ def detail_view(request, pk):
     if not request.user.has_module_perm("maintenance", "read"):
         return HttpResponseForbidden()
     rec = get_object_or_404(MaintenanceRecord, pk=pk, **dept_filter(request.user))
-    return render(request, "maintenance/detail.html", {"rec": rec})
+    return render(request, "maintenance/detail.html", {
+        "rec": rec,
+        "can_edit": request.user.has_module_perm("maintenance", "edit"),
+    })

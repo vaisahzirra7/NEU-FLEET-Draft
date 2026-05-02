@@ -20,10 +20,12 @@
       Edit
     </a>
     {% endif %}
+    {% if can_issue_coupon %}
     <a href="{% url 'coupons:create' %}?vehicle={{ vehicle.pk }}" class="btn btn-amber">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Issue Coupon
     </a>
+    {% endif %}
   </div>
 </div>
 
@@ -98,7 +100,9 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">Recent Maintenance</div>
+        {% if can_add_maintenance %}
         <a href="{% url 'maintenance:create' %}?vehicle={{ vehicle.pk }}" class="btn btn-outline btn-sm">+ Add Record</a>
+        {% endif %}
       </div>
       <div class="table-wrapper">
         <table class="data-table">
@@ -157,7 +161,9 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">Recent Coupons</div>
+        {% if can_view_coupons %}
         <a href="{% url 'coupons:list' %}?vehicle={{ vehicle.pk }}" class="btn btn-outline btn-sm">View All</a>
+        {% endif %}
       </div>
       <div class="card-body" style="padding:0 1.25rem;">
         {% for c in coupons %}

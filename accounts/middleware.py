@@ -1,24 +1,43 @@
 from django.shortcuts import redirect
 from django.conf import settings
 
+CHANGE_PASSWORD_URL = "/auth/change-password/"
+
 
 class LoginRequiredMiddleware:
     """
-    Redirects unauthenticated users to login for every URL
-    except those in EXEMPT_URLS (login page itself).
-    This means we don't need @login_required on every view.
+    1. Redirects unauthenticated users to login.
+    2. Forces users with must_change_password=True to the change-password
+       page before they can access anything else.
     """
     EXEMPT = {
         settings.LOGIN_URL,
         "/auth/login/",
+        CHANGE_PASSWORD_URL,
+        "/auth/forgot-password/",
+        "/auth/forgot-password/verify/",
+        "/auth/forgot-password/confirm/",
     }
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        path = request.path_info
+
+        if path.startswith("/static/"):
+            return self.get_response(request)
+
         if not request.user.is_authenticated:
-            path = request.path_info
-            if path not in self.EXEMPT and not path.startswith("/static/"):
+            if path not in self.EXEMPT:
                 return redirect(f"{settings.LOGIN_URL}?next={path}")
+            return self.get_response(request)
+
+        # Force password change
+        if (
+            getattr(request.user, "must_change_password", False)
+            and path not in self.EXEMPT
+        ):
+            return redirect(CHANGE_PASSWORD_URL)
+
         return self.get_response(request)

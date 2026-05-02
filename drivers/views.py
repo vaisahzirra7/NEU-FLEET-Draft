@@ -31,6 +31,7 @@ def list_view(request):
         "q": q,
         "status_filter": status,
         "can_write": request.user.has_module_perm("drivers", "write"),
+        "can_edit":  request.user.has_module_perm("drivers", "edit"),
     })
 
 

@@ -83,7 +83,12 @@ def detail_view(request, pk):
         "total_fuel": total_fuel,
         "total_maint": total_maint,
         "total_spend": total_fuel + total_maint,
-        "can_edit": request.user.has_module_perm("vehicles", "edit"),
+        "can_edit":              request.user.has_module_perm("vehicles", "edit"),
+        "can_issue_coupon":      request.user.has_module_perm("coupons", "write"),
+        "can_add_maintenance":   request.user.has_module_perm("maintenance", "write"),
+        "can_view_coupons":      request.user.has_module_perm("coupons", "read"),
+        "can_view_maintenance":  request.user.has_module_perm("maintenance", "read"),
+        "can_view_fuel_logs":    request.user.has_module_perm("fuel_logs", "read"),
     })
 
 

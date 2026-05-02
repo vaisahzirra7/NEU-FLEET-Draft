@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}Edit User{% else %}Add User{% endif %}{% endblock %}
+{% block page_title %}{% if obj %}Edit User{% else %}Add User{% endif %}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'accounts:users' %}">Users</a>
+  <span class="sep">›</span> {% if obj %}{{ obj.full_name }}{% else %}Add{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:540px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        {% if obj %}Edit — {{ obj.full_name }}{% else %}Create New User{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+
+      {% if obj %}
+      <div style="display:flex;align-items:center;gap:.85rem;padding:.85rem;background:var(--surface-2);border-radius:var(--radius);margin-bottom:1.25rem;">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex-shrink:0;">
+          {{ obj.full_name|slice:":1"|upper }}
+        </div>
+        <div>
+          <div class="fw-600">{{ obj.full_name }}</div>
+          <div style="font-size:.8rem;color:var(--text-muted);">{{ obj.email }}</div>
+          <div style="margin-top:.25rem;">
+            {% if obj.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
+            {% if obj.is_system_admin %}<span class="badge badge-navy" style="margin-left:.3rem;">Super Admin</span>{% endif %}
+            {% if obj.must_change_password %}<span class="badge badge-warning" style="margin-left:.3rem;">Must Change Password</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div style="background:var(--surface-2);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1.25rem;font-size:.83rem;color:var(--text-muted);">
+        A default password (<strong>Neu@12345</strong>) will be set automatically. The user will be prompted to change it on first login.
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Full Name <span class="req">*</span></label>
+          <input type="text" name="full_name" class="form-control {% if errors.full_name %}field-error{% endif %}"
+            value="{% if obj %}{{ obj.full_name }}{% elif post.full_name %}{{ post.full_name }}{% endif %}"
+            placeholder="e.g. Vaisah Peter Zirra">
+          {% if errors.full_name %}<div class="error-msg">{{ errors.full_name }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address <span class="req">*</span></label>
+          <input type="email" name="email" class="form-control {% if errors.email %}field-error{% endif %}"
+            value="{% if obj %}{{ obj.email }}{% elif post.email %}{{ post.email }}{% endif %}"
+            placeholder="user@neu.edu.ng"
+            {% if obj %}readonly style="background:var(--surface-2);color:var(--text-muted);"{% endif %}>
+          {% if errors.email %}<div class="error-msg">{{ errors.email }}</div>{% endif %}
+          {% if obj %}<div class="form-hint">Email cannot be changed after account creation.</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role <span class="req">*</span></label>
+          <select name="role" class="form-select {% if errors.role %}field-error{% endif %}">
+            <option value="">— Select Role —</option>
+            {% for r in roles %}
+            <option value="{{ r.pk }}"
+              {% if obj and obj.role_id == r.pk %}selected
+              {% elif post.role == r.pk|stringformat:"s" %}selected{% endif %}>
+              {{ r.name }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if errors.role %}<div class="error-msg">{{ errors.role }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select name="department" class="form-select">
+            <option value="">— No Department (System-wide) —</option>
+            {% for d in departments %}
+            <option value="{{ d.pk }}"
+              {% if obj and obj.department_id == d.pk %}selected
+              {% elif post.department == d.pk|stringformat:"s" %}selected{% endif %}>
+              {{ d.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-hint">Leave blank for Super Admin users who span all departments.</div>
+        </div>
+
+        {% if obj %}
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+            <input type="checkbox" name="is_active" {% if obj.is_active %}checked{% endif %} style="width:16px;height:16px;">
+            Account Active
+          </label>
+          <div class="form-hint">Inactive users cannot log in.</div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-1 mt-2" style="flex-wrap:wrap;">
+          <button type="submit" name="action" value="save" class="btn btn-primary">
+            {% if obj %}Save Changes{% else %}Create User{% endif %}
+          </button>
+          <a href="{% url 'accounts:users' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+
+      {% if obj %}
+      <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+        <div class="fw-600" style="font-size:.83rem;margin-bottom:.5rem;color:var(--text-muted);">Password Reset</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
+          Resets the user's password to <strong>Neu@12345</strong>. They will be forced to change it on next login.
+        </p>
+        <form method="post" onsubmit="return confirm('Reset password for {{ obj.full_name }} to default?');">
+          {% csrf_token %}
+          <button type="submit" name="action" value="reset_password" class="btn btn-outline btn-sm"
+            style="border-color:var(--danger);color:var(--danger);">
+            Reset to Default Password
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

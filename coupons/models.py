@@ -28,7 +28,7 @@ class FuelCoupon(models.Model):
 
     # ── identifiers ──
     # Human-readable sequential ID is generated in save() via a signal/override
-    coupon_id         = models.CharField(max_length=20, unique=True, editable=False)
+    coupon_id         = models.CharField(max_length=25, unique=True, editable=False)
     verification_code = models.CharField(max_length=10, unique=True, editable=False)
 
     # ── linked records ──
@@ -111,23 +111,13 @@ class FuelCoupon(models.Model):
 
         # Generate coupon_id on first save
         if not self.coupon_id:
-            year = timezone.now().year
-            # Extract the highest sequence number from ALL existing coupon IDs
-            # regardless of format (FMS-2026-NNNNN or NEU/FMS/2026/NNNNN etc.)
-            # by parsing the last numeric segment of each ID
-            max_seq = 0
-            for row in FuelCoupon.objects.values_list("coupon_id", flat=True):
-                parts = row.replace("/", "-").split("-")
-                for part in reversed(parts):
-                    if part.isdigit():
-                        max_seq = max(max_seq, int(part))
-                        break
-            seq = max_seq + 1
-            candidate = f"FMS-{year}-{seq:05d}"
-            # Final safety loop — guaranteed unique
+            # Format: NEU/FMS/CP/XXXXXXXX
+            # 8-char random alphanumeric suffix — not sequential, not guessable
+            chars = string.ascii_uppercase + string.digits
+            candidate = "NEU/FMS/CP/" + "".join(random.choices(chars, k=8))
+            # Guarantee uniqueness (collision probability is negligible but guard anyway)
             while FuelCoupon.objects.filter(coupon_id=candidate).exists():
-                seq += 1
-                candidate = f"FMS-{year}-{seq:05d}"
+                candidate = "NEU/FMS/CP/" + "".join(random.choices(chars, k=8))
             self.coupon_id = candidate
 
         # Generate verification code on first save

@@ -5,9 +5,14 @@ from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from datetime import date, timedelta
 from decimal import Decimal
+import io
+import os
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image as XLImage
+from PIL import Image as PILImage
+from django.conf import settings
 
 from coupons.models import FuelCoupon
 from fuel_logs.models import FuelLog
@@ -45,65 +50,203 @@ def parse_dates(request):
     return date_from, date_to
 
 
-# ── Excel helper ────────────────────────────────────────────────────────
+# ── Excel helpers ───────────────────────────────────────────────────────
 
-NAVY  = "0F2044"
-AMBER = "E8A020"
-LIGHT = "F4F6FA"
-WHITE = "FFFFFF"
+# Colour palette (matches PDF brown/navy theme)
+NAVY   = "0F2044"
+NAVY2  = "1A3260"
+BROWN  = "6B2D0F"
+BROWN2 = "8B3D15"
+GOLD   = "C8813A"
+GOLD2  = "D99850"
+LIGHT  = "F4F6FA"
+STRIPE = "EEF1F8"
+WHITE  = "FFFFFF"
+MUTED  = "6B7A99"
+
 
 def xl_workbook(title):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = title
+    ws.sheet_view.showGridLines = False
     return wb, ws
 
 
-def xl_header_row(ws, cols, row=1):
+def _get_logo_image(target_height_px=68):
+    """Load the university logo, resize proportionally, return XLImage + dimensions."""
+    try:
+        logo_path = getattr(settings, "REPORT_LOGO_PATH", None)
+        if not logo_path or not os.path.exists(str(logo_path)):
+            return None, 0, 0
+        pil_img = PILImage.open(str(logo_path)).convert("RGBA")
+        orig_w, orig_h = pil_img.size
+        ratio = target_height_px / orig_h
+        new_w = int(orig_w * ratio)
+        pil_img = pil_img.resize((new_w, target_height_px), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        pil_img.save(buf, format="PNG")
+        buf.seek(0)
+        xl_img = XLImage(buf)
+        xl_img.width  = new_w
+        xl_img.height = target_height_px
+        return xl_img, new_w, target_height_px
+    except Exception:
+        return None, 0, 0
+
+
+def xl_title_block(ws, title, subtitle, date_from, date_to, n_cols=8):
+    """
+    Header block matching exact user specification:
+      Row 1  — navy, empty  (36pt) — logo anchored here, centred
+      Row 2  — navy, institution name centred (36pt)
+      Row 3  — navy, empty  (18pt) — bottom padding for logo
+      Row 4  — brown, report title (26pt)
+      Row 5  — light, meta info (16pt)
+      Row 6  — spacer (6pt)
+      Row 7  — column headers
+      Row 8+ — data
+    """
+    from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
+    from openpyxl.utils.units import pixels_to_EMU
+    import openpyxl.utils as _utils
+
+    last_col = _utils.get_column_letter(n_cols)
     navy_fill  = PatternFill("solid", fgColor=NAVY)
-    white_font = Font(color=WHITE, bold=True, size=10)
+    brown_fill = PatternFill("solid", fgColor=BROWN)
+    light_fill = PatternFill("solid", fgColor=LIGHT)
+
+    # ── Rows 1-3: Navy banner ──
+    row_heights = {1: 36.0, 2: 36.0, 3: 18.0}
+    for r in (1, 2, 3):
+        ws.merge_cells(f"A{r}:{last_col}{r}")
+        ws.cell(r, 1).fill = navy_fill
+        ws.row_dimensions[r].height = row_heights[r]
+
+    # Institution name in row 2, centred
+    c = ws.cell(2, 1)
+    c.value     = "NORTH-EASTERN UNIVERSITY, GOMBE  •  FLEET MANAGEMENT SYSTEM"
+    c.font      = Font(bold=True, size=12, color=WHITE, name="Calibri")
+    c.alignment = Alignment(horizontal="center", vertical="center")
+
+    # ── Logo: centred over rows 1-3 ──
+    # Total banner height in px: rows 1+2+3 = 36+36+18 = 90pt → ~90*1.333 = 120px
+    # Logo height = 68px leaves ~26px padding top+bottom
+    logo, logo_w, logo_h = _get_logo_image(target_height_px=68)
+    if logo:
+        # Approximate total sheet width in pixels (col width units * 7px/unit)
+        col_widths_px = []
+        for ci in range(1, n_cols + 1):
+            col_letter = _utils.get_column_letter(ci)
+            w = ws.column_dimensions[col_letter].width or 8
+            col_widths_px.append(w * 7)
+        total_w_px = sum(col_widths_px)
+
+        # Centre the logo horizontally
+        left_px = max(0, (total_w_px - logo_w) // 2)
+        # Small top padding inside row 1
+        top_px  = 8
+
+        left_emu = pixels_to_EMU(int(left_px))
+        top_emu  = pixels_to_EMU(int(top_px))
+
+        marker = AnchorMarker(col=0, colOff=left_emu, row=0, rowOff=top_emu)
+        logo.anchor = OneCellAnchor(_from=marker, ext=None)
+        logo.anchor.ext.cx = pixels_to_EMU(logo_w)
+        logo.anchor.ext.cy = pixels_to_EMU(logo_h)
+        ws.add_image(logo)
+
+    # ── Row 4: Brown — report title ──
+    ws.merge_cells(f"A4:{last_col}4")
+    c = ws.cell(4, 1)
+    c.value     = title.upper()
+    c.font      = Font(bold=True, size=14, color=WHITE, name="Calibri")
+    c.fill      = brown_fill
+    c.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[4].height = 25.95
+
+    # ── Row 5: Meta bar ──
+    ws.merge_cells(f"A5:{last_col}5")
+    period = f"{date_from.strftime('%d %b %Y')} — {date_to.strftime('%d %b %Y')}"
+    meta   = f"Period: {period}"
+    if subtitle:
+        meta = f"{subtitle}   |   {meta}"
+    meta += "   |   Confidential — For Internal Use Only"
+    c = ws.cell(5, 1)
+    c.value     = meta
+    c.font      = Font(italic=True, size=9, color=MUTED, name="Calibri")
+    c.fill      = light_fill
+    c.alignment = Alignment(horizontal="center", vertical="center")
+    c.border    = Border(bottom=Side(style="thin", color=GOLD))
+    ws.row_dimensions[5].height = 16.05
+
+    # ── Row 6: Spacer ──
+    ws.row_dimensions[6].height = 6.0
+
+
+def xl_header_row(ws, cols, row=7):
+    """Column header row — navy fill, white bold text, centred."""
+    navy_fill  = PatternFill("solid", fgColor=NAVY2)
+    white_font = Font(color=WHITE, bold=True, size=10, name="Calibri")
     center     = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    border     = Border(
+        bottom=Side(style="medium", color=GOLD),
+        top=Side(style="thin", color=NAVY),
+    )
     for col_idx, label in enumerate(cols, 1):
         cell = ws.cell(row=row, column=col_idx, value=label)
-        cell.fill  = navy_fill
-        cell.font  = white_font
+        cell.fill      = navy_fill
+        cell.font      = white_font
         cell.alignment = center
-    ws.row_dimensions[row].height = 22
+        cell.border    = border
+    ws.row_dimensions[row].height = 24
+    # Freeze panes so header + title stays visible when scrolling
+    ws.freeze_panes = ws.cell(row=row + 1, column=1)
 
 
 def xl_data_row(ws, values, row, shade=False):
-    fill = PatternFill("solid", fgColor="EEF1F8") if shade else PatternFill("solid", fgColor=WHITE)
-    thin = Side(style="thin", color="DDDDDD")
+    """Data row with alternating stripe, bottom border, and number formatting."""
+    fill   = PatternFill("solid", fgColor=STRIPE) if shade else PatternFill("solid", fgColor=WHITE)
     border = Border(bottom=Side(style="thin", color="DDDDDD"))
     for col_idx, val in enumerate(values, 1):
         cell = ws.cell(row=row, column=col_idx, value=val)
-        cell.fill   = fill
-        cell.border = border
-        cell.alignment = Alignment(vertical="center")
+        cell.fill      = fill
+        cell.border    = border
+        cell.font      = Font(size=10, name="Calibri")
+        cell.alignment = Alignment(vertical="center", indent=1)
         if isinstance(val, (int, float, Decimal)):
             cell.number_format = '#,##0.00' if isinstance(val, (float, Decimal)) else '#,##0'
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+    ws.row_dimensions[row].height = 18
 
 
-def xl_title_block(ws, title, subtitle, date_from, date_to):
-    """Write a styled title block at the top of the sheet."""
-    ws.merge_cells("A1:H1")
-    ws["A1"].value = "NORTH-EASTERN UNIVERSITY, GOMBE — FLEET MANAGEMENT SYSTEM"
-    ws["A1"].font  = Font(bold=True, size=11, color=NAVY)
-    ws["A1"].alignment = Alignment(horizontal="center")
+def xl_totals_row(ws, row, n_cols, label_col=1, value_cols=None, values=None):
+    """
+    Write a gold-accented totals row.
+    value_cols — list of 1-based column indices that get a value
+    values     — matching list of values
+    """
+    gold_fill  = PatternFill("solid", fgColor=GOLD)
+    navy_font  = Font(bold=True, size=10, color=NAVY, name="Calibri")
+    border     = Border(
+        top=Side(style="medium", color=BROWN),
+        bottom=Side(style="thin", color=BROWN2),
+    )
+    for col_idx in range(1, n_cols + 1):
+        cell = ws.cell(row=row, column=col_idx)
+        cell.fill   = gold_fill
+        cell.border = border
+        cell.font   = navy_font
+        cell.alignment = Alignment(vertical="center", indent=1)
 
-    ws.merge_cells("A2:H2")
-    ws["A2"].value = title.upper()
-    ws["A2"].font  = Font(bold=True, size=13, color=NAVY)
-    ws["A2"].fill  = PatternFill("solid", fgColor="EEF1F8")
-    ws["A2"].alignment = Alignment(horizontal="center")
+    ws.cell(row=row, column=label_col).value = "GRAND TOTAL"
 
-    ws.merge_cells("A3:H3")
-    ws["A3"].value = f"{subtitle}  |  Period: {date_from.strftime('%d %b %Y')} — {date_to.strftime('%d %b %Y')}"
-    ws["A3"].font  = Font(italic=True, size=9, color="666666")
-    ws["A3"].alignment = Alignment(horizontal="center")
-    ws.row_dimensions[1].height = 18
-    ws.row_dimensions[2].height = 22
-    ws.row_dimensions[3].height = 16
+    if value_cols and values:
+        for col_idx, val in zip(value_cols, values):
+            cell = ws.cell(row=row, column=col_idx, value=val)
+            cell.number_format = '#,##0.00'
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+    ws.row_dimensions[row].height = 22
 
 
 def xl_response(wb, filename):
@@ -167,9 +310,11 @@ def dashboard(request):
     ).select_related("vehicle").order_by("next_service_date")
 
     seen = set()
+    service_due = []
     for rec in service_due_qs:
         if rec.vehicle_id not in seen:
             seen.add(rec.vehicle_id)
+            service_due.append(rec)
             alerts.append({
                 "type": "warning",
                 "title": f"Service due: {rec.vehicle.plate_number}",
@@ -181,7 +326,6 @@ def dashboard(request):
     license_alerts = Driver.objects.filter(
         status=Driver.STATUS_ACTIVE,
         license_expiry__lte=license_cutoff,
-        license_expiry__gte=today,
     ).order_by("license_expiry")
     for d in license_alerts:
         alerts.append({
@@ -208,8 +352,18 @@ def dashboard(request):
     return render(request, "dashboard/dashboard.html", {
         "stats": stats,
         "alerts": alerts,
+        "service_due": service_due,
+        "license_alerts": license_alerts,
         "top_vehicles": top_vehicles,
         "recent_activity": recent_activity,
+        # Permission flags for dynamic dashboard
+        "can_see_coupons":     request.user.has_module_perm("coupons", "read"),
+        "can_see_fuel_logs":   request.user.has_module_perm("fuel_logs", "read"),
+        "can_see_maintenance": request.user.has_module_perm("maintenance", "read"),
+        "can_see_vehicles":    request.user.has_module_perm("vehicles", "read"),
+        "can_see_drivers":     request.user.has_module_perm("drivers", "read"),
+        "can_see_reports":     request.user.has_module_perm("reports", "read"),
+        "can_see_audit":       request.user.has_module_perm("audit", "read"),
     })
 
 
@@ -277,11 +431,12 @@ def vehicle_spending(request):
 
 
 def _vehicle_spending_excel(rows, df, dt, gf, gm, gt):
+    n_cols = 8
     wb, ws = xl_workbook("Vehicle Spending")
-    xl_title_block(ws, "Per-Vehicle Spending Report", "All vehicles", df, dt)
-    cols = ["Plate No.", "Make & Model", "Dept", "Fuel Litres", "Fuel Cost (₦)", "Maint. Cost (₦)", "Total Spend (₦)", "Maint. Records"]
-    xl_header_row(ws, cols, row=5)
-    for i, r in enumerate(rows, 6):
+    xl_title_block(ws, "Per-Vehicle Spending Report", "All Vehicles", df, dt, n_cols=n_cols)
+    cols = ["Plate No.", "Make & Model", "Department", "Fuel Litres", "Fuel Cost (₦)", "Maint. Cost (₦)", "Total Spend (₦)", "Maint. Records"]
+    xl_header_row(ws, cols, row=7)
+    for i, r in enumerate(rows, 8):
         xl_data_row(ws, [
             r["vehicle"].plate_number,
             f"{r['vehicle'].make} {r['vehicle'].model}",
@@ -292,14 +447,11 @@ def _vehicle_spending_excel(rows, df, dt, gf, gm, gt):
             float(r["total"]),
             r["maint_count"],
         ], i, shade=(i % 2 == 0))
-    totals_row = len(rows) + 6
-    ws.cell(totals_row, 1, "TOTAL").font = Font(bold=True)
-    ws.cell(totals_row, 5, float(gf)).number_format = '#,##0.00'
-    ws.cell(totals_row, 6, float(gm)).number_format = '#,##0.00'
-    ws.cell(totals_row, 7, float(gt)).number_format = '#,##0.00'
-    for c in [5,6,7]:
-        ws.cell(totals_row, c).font = Font(bold=True)
-    col_widths = [14, 22, 20, 14, 16, 16, 16, 14]
+    totals_row = len(rows) + 8
+    xl_totals_row(ws, totals_row, n_cols, label_col=1,
+                  value_cols=[5, 6, 7],
+                  values=[float(gf), float(gm), float(gt)])
+    col_widths = [15, 24, 22, 14, 18, 18, 18, 14]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     return xl_response(wb, f"vehicle_spending_{df}_{dt}.xlsx")
@@ -370,40 +522,58 @@ def fleet_summary(request):
 
 def _fleet_summary_excel(ctx):
     df, dt = ctx["date_from"], ctx["date_to"]
+    n_cols = 4
     wb, ws = xl_workbook("Fleet Summary")
-    xl_title_block(ws, "Fleet Spending Summary", "University-wide overview", df, dt)
+    xl_title_block(ws, "Fleet Spending Summary", "University-wide overview", df, dt, n_cols=n_cols)
+    ws.sheet_view.showGridLines = False
 
-    # KPI block
-    ws.cell(5, 1, "Metric").font = Font(bold=True)
-    ws.cell(5, 2, "Value").font = Font(bold=True)
+    # KPI block starts at row 8 (after 6-row title block + spacer)
+    kpi_header_fill = PatternFill("solid", fgColor=NAVY2)
+    ws.cell(8, 1, "SUMMARY METRICS").font = Font(bold=True, size=10, color=WHITE, name="Calibri")
+    ws.cell(8, 1).fill = kpi_header_fill
+    ws.cell(8, 2, "VALUE").font = Font(bold=True, size=10, color=WHITE, name="Calibri")
+    ws.cell(8, 2).fill = kpi_header_fill
+    ws.row_dimensions[8].height = 22
     kpis = [
-        ("Total Fuel Cost (₦)", float(ctx["total_fuel_cost"])),
-        ("Total Fuel Litres", float(ctx["total_fuel_litres"] or 0)),
+        ("Total Fuel Cost (₦)",       float(ctx["total_fuel_cost"])),
+        ("Total Fuel Litres",          float(ctx["total_fuel_litres"] or 0)),
         ("Total Maintenance Cost (₦)", float(ctx["total_maint_cost"])),
-        ("Total Spend (₦)", float(ctx["total_spend"])),
-        ("Coupons Issued", ctx["total_coupons"]),
-        ("Maintenance Records", ctx["total_maint_recs"]),
+        ("Grand Total Spend (₦)",      float(ctx["total_spend"])),
+        ("Coupons Issued",             ctx["total_coupons"]),
+        ("Maintenance Records",        ctx["total_maint_recs"]),
     ]
-    for i, (k, v) in enumerate(kpis, 6):
-        ws.cell(i, 1, k)
-        c = ws.cell(i, 2, v)
+    for i, (k, v) in enumerate(kpis, 9):
+        shade = (i % 2 == 0)
+        fill = PatternFill("solid", fgColor=STRIPE if shade else WHITE)
+        c1 = ws.cell(i, 1, k)
+        c1.font = Font(size=10, name="Calibri")
+        c1.fill = fill
+        c1.alignment = Alignment(indent=1, vertical="center")
+        c2 = ws.cell(i, 2, v)
+        c2.font = Font(size=10, name="Calibri")
+        c2.fill = fill
+        c2.alignment = Alignment(horizontal="right", vertical="center")
         if isinstance(v, float):
-            c.number_format = '#,##0.00'
+            c2.number_format = '#,##0.00'
+        ws.row_dimensions[i].height = 18
 
-    # Dept breakdown
-    row = 13
-    ws.cell(row, 1, "BY DEPARTMENT").font = Font(bold=True, color=NAVY)
+    # Department breakdown — starts after KPI block (row 8 header + 6 KPI rows = row 16)
+    row = 16
+    ws.cell(row, 1, "BREAKDOWN BY DEPARTMENT").font = Font(bold=True, size=10, color=WHITE, name="Calibri")
+    ws.cell(row, 1).fill = PatternFill("solid", fgColor=BROWN)
+    ws.row_dimensions[row].height = 20
     row += 1
     xl_header_row(ws, ["Department", "Fuel Cost (₦)", "Maint. Cost (₦)", "Total (₦)"], row)
     row += 1
     for i, r in enumerate(ctx["dept_rows"], row):
         xl_data_row(ws, [r["dept"].name, float(r["fuel"]), float(r["maint"]), float(r["total"])], i, shade=(i%2==0))
         row += 1
+    xl_totals_row(ws, row, n_cols, label_col=1,
+                  value_cols=[2, 3, 4],
+                  values=[float(ctx["total_fuel_cost"]), float(ctx["total_maint_cost"]), float(ctx["total_spend"])])
 
-    ws.column_dimensions["A"].width = 28
-    ws.column_dimensions["B"].width = 18
-    ws.column_dimensions["C"].width = 18
-    ws.column_dimensions["D"].width = 18
+    for col, w in zip(["A","B","C","D"], [30, 20, 20, 20]):
+        ws.column_dimensions[col].width = w
     return xl_response(wb, f"fleet_summary_{df}_{dt}.xlsx")
 
 
@@ -452,34 +622,46 @@ def monthly_expense(request):
 
 def _monthly_expense_excel(ctx):
     df, dt = ctx["date_from"], ctx["date_to"]
+    n_cols = 6
     wb = openpyxl.Workbook()
 
     # Sheet 1 — Fuel logs
     ws1 = wb.active
     ws1.title = "Fuel Transactions"
-    xl_title_block(ws1, "Monthly Fuel Transactions", "", df, dt)
-    xl_header_row(ws1, ["Date", "Coupon ID", "Vehicle", "Driver", "Litres", "Cost (₦)"], 5)
-    for i, log in enumerate(ctx["fuel_logs"], 6):
+    ws1.sheet_view.showGridLines = False
+    xl_title_block(ws1, "Monthly Fuel Transactions", "Fuel log detail", df, dt, n_cols=n_cols)
+    xl_header_row(ws1, ["Date", "Coupon ID", "Vehicle", "Driver", "Litres", "Cost (₦)"], 7)
+    for i, log in enumerate(ctx["fuel_logs"], 8):
         xl_data_row(ws1, [
             str(log.fuel_date), log.coupon.coupon_id,
             log.vehicle.plate_number, log.driver.full_name,
             float(log.actual_litres), float(log.actual_cost),
         ], i, shade=(i%2==0))
+    totals_row1 = len(ctx["fuel_logs"]) + 8
+    xl_totals_row(ws1, totals_row1, n_cols, label_col=1,
+                  value_cols=[5, 6],
+                  values=[float(sum(l.actual_litres for l in ctx["fuel_logs"])),
+                          float(ctx["total_fuel"])])
+    for col, w in zip(["A","B","C","D","E","F"], [14, 24, 14, 22, 12, 16]):
+        ws1.column_dimensions[col].width = w
 
     # Sheet 2 — Maintenance
     ws2 = wb.create_sheet("Maintenance")
-    xl_title_block(ws2, "Monthly Maintenance Records", "", df, dt)
-    xl_header_row(ws2, ["Date", "Vehicle", "Service Type", "Vendor", "Cost (₦)", "Approved By"], 5)
-    for i, rec in enumerate(ctx["maint_records"], 6):
+    ws2.sheet_view.showGridLines = False
+    xl_title_block(ws2, "Monthly Maintenance Records", "Maintenance detail", df, dt, n_cols=n_cols)
+    xl_header_row(ws2, ["Date", "Vehicle", "Service Type", "Vendor", "Cost (₦)", "Approved By"], 7)
+    for i, rec in enumerate(ctx["maint_records"], 8):
         xl_data_row(ws2, [
             str(rec.service_date), rec.vehicle.plate_number,
             rec.get_service_type_display(), rec.effective_vendor_name,
             float(rec.total_cost), rec.approved_by,
         ], i, shade=(i%2==0))
-
-    for ws in [ws1, ws2]:
-        for col in ["A","B","C","D","E","F"]:
-            ws.column_dimensions[col].width = 18
+    totals_row2 = len(ctx["maint_records"]) + 8
+    xl_totals_row(ws2, totals_row2, n_cols, label_col=1,
+                  value_cols=[5],
+                  values=[float(ctx["total_maint"])])
+    for col, w in zip(["A","B","C","D","E","F"], [14, 16, 20, 22, 16, 20]):
+        ws2.column_dimensions[col].width = w
 
     return xl_response(wb, f"monthly_expense_{df}_{dt}.xlsx")
 
@@ -525,16 +707,22 @@ def coupon_report(request):
 
 def _coupon_report_excel(ctx):
     df, dt = ctx["date_from"], ctx["date_to"]
+    n_cols = 8
     wb, ws = xl_workbook("Coupon Report")
-    xl_title_block(ws, "Fuel Coupon Report", "", df, dt)
-    xl_header_row(ws, ["Coupon ID", "Issued", "Vehicle", "Driver", "Station", "Litres", "Value (₦)", "Status"], 5)
-    for i, c in enumerate(ctx["coupons"], 6):
+    ws.sheet_view.showGridLines = False
+    xl_title_block(ws, "Fuel Coupon Report", "All issued coupons", df, dt, n_cols=n_cols)
+    xl_header_row(ws, ["Coupon ID", "Issued", "Vehicle", "Driver", "Station", "Litres", "Value (₦)", "Status"], 7)
+    for i, c in enumerate(ctx["coupons"], 8):
         xl_data_row(ws, [
             c.coupon_id, c.issue_datetime.strftime("%d/%m/%Y %H:%M"),
             c.vehicle.plate_number, c.driver.full_name, c.fuel_station.name,
             float(c.litres), float(c.total_value), c.get_status_display(),
         ], i, shade=(i%2==0))
-    for col, w in zip(["A","B","C","D","E","F","G","H"], [18,18,14,20,20,10,14,12]):
+    totals_row = len(ctx["coupons"]) + 8
+    xl_totals_row(ws, totals_row, n_cols, label_col=1,
+                  value_cols=[7],
+                  values=[float(ctx["total_value"])])
+    for col, w in zip(["A","B","C","D","E","F","G","H"], [24, 18, 14, 22, 22, 10, 16, 12]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"coupon_report_{df}_{dt}.xlsx")
 
@@ -578,17 +766,23 @@ def maintenance_report(request):
 
 def _maintenance_excel(ctx):
     df, dt = ctx["date_from"], ctx["date_to"]
+    n_cols = 8
     wb, ws = xl_workbook("Maintenance History")
-    xl_title_block(ws, "Maintenance History Report", "", df, dt)
-    xl_header_row(ws, ["Date", "Vehicle", "Plate", "Service Type", "Description", "Vendor", "Cost (₦)", "Approved By"], 5)
-    for i, r in enumerate(ctx["records"], 6):
+    ws.sheet_view.showGridLines = False
+    xl_title_block(ws, "Maintenance History Report", "All maintenance records", df, dt, n_cols=n_cols)
+    xl_header_row(ws, ["Date", "Vehicle", "Plate", "Service Type", "Description", "Vendor", "Cost (₦)", "Approved By"], 7)
+    for i, r in enumerate(ctx["records"], 8):
         xl_data_row(ws, [
             str(r.service_date),
             f"{r.vehicle.make} {r.vehicle.model}", r.vehicle.plate_number,
             r.get_service_type_display(), r.description[:60],
             r.effective_vendor_name, float(r.total_cost), r.approved_by,
         ], i, shade=(i%2==0))
-    for col, w in zip(["A","B","C","D","E","F","G","H"], [12,20,14,18,30,20,14,18]):
+    totals_row = len(ctx["records"]) + 8
+    xl_totals_row(ws, totals_row, n_cols, label_col=1,
+                  value_cols=[7],
+                  values=[float(ctx["total_cost"])])
+    for col, w in zip(["A","B","C","D","E","F","G","H"], [13, 22, 14, 18, 32, 22, 16, 20]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"maintenance_report_{df}_{dt}.xlsx")
 
@@ -638,15 +832,21 @@ def vendor_report(request):
 
 def _vendor_excel(ctx):
     df, dt = ctx["date_from"], ctx["date_to"]
+    n_cols = 8
     wb, ws = xl_workbook("Vendor Spend")
-    xl_title_block(ws, "Vendor Spend Report", "", df, dt)
-    xl_header_row(ws, ["Vendor", "Type", "Fuel Cost (₦)", "Litres", "Fuel Txns", "Maint. Cost (₦)", "Maint. Txns", "Total (₦)"], 5)
-    for i, r in enumerate(ctx["rows"], 6):
+    ws.sheet_view.showGridLines = False
+    xl_title_block(ws, "Vendor Spend Report", "All active vendors", df, dt, n_cols=n_cols)
+    xl_header_row(ws, ["Vendor", "Type", "Fuel Cost (₦)", "Litres", "Fuel Txns", "Maint. Cost (₦)", "Maint. Txns", "Total (₦)"], 7)
+    for i, r in enumerate(ctx["rows"], 8):
         xl_data_row(ws, [
             r["vendor"].name, r["vendor"].get_type_display(),
             float(r["fuel_cost"]), float(r["fuel_litres"]),
             r["fuel_txn"], float(r["maint_cost"]), r["maint_txn"], float(r["total"]),
         ], i, shade=(i%2==0))
-    for col, w in zip(["A","B","C","D","E","F","G","H"], [26,16,16,12,12,16,12,16]):
+    totals_row = len(ctx["rows"]) + 8
+    xl_totals_row(ws, totals_row, n_cols, label_col=1,
+                  value_cols=[8],
+                  values=[float(ctx["grand_total"])])
+    for col, w in zip(["A","B","C","D","E","F","G","H"], [28, 16, 18, 12, 12, 18, 12, 18]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"vendor_report_{df}_{dt}.xlsx")

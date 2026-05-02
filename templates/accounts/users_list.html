@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block page_title %}Users{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'accounts:users' %}">Admin</a>
+  <span class="sep">›</span> Users
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>System Users</h1>
+    <p>All registered user accounts and their roles</p>
+  </div>
+  <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add User
+  </a>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Department</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:.6rem;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;flex-shrink:0;">
+                {{ u.full_name|slice:":1"|upper }}
+              </div>
+              <div>
+                <div class="fw-600" style="font-size:.88rem;">{{ u.full_name }}</div>
+                {% if u.is_system_admin %}<span class="badge badge-navy" style="font-size:.65rem;">Super Admin</span>{% endif %}
+              </div>
+            </div>
+          </td>
+          <td style="color:var(--text-muted);font-size:.85rem;">{{ u.email }}</td>
+          <td>
+            {% if u.role %}
+              <span class="badge badge-navy">{{ u.role.name }}</span>
+            {% else %}
+              <span style="color:var(--text-muted);font-size:.82rem;">—</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.85rem;">{{ u.department.name|default:"—" }}</td>
+          <td>
+            {% if u.is_active %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge badge-muted">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.8rem;color:var(--text-muted);">{{ u.created_at|date:"d M Y" }}</td>
+          <td>
+            <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-outline btn-sm">Edit</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">
+          <div class="empty-state">
+            <span class="empty-icon">👤</span>
+            <div class="empty-title">No users yet</div>
+            <div class="empty-sub">Create the first user account to get started.</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

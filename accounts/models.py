@@ -137,6 +137,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text="Bypasses all module permission checks. Super Admin only."
     )
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Forces user to change password on next login."
+    )
     created_by = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="created_users"
@@ -180,3 +184,21 @@ class User(AbstractBaseUser, PermissionsMixin):
         return list(
             self.role.permissions.filter(can_read=True).values_list("module", flat=True)
         )
+
+
+class PasswordResetOTP(models.Model):
+    """Single-use OTP for password reset. Expires after 15 minutes."""
+    user       = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="reset_otps")
+    otp        = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used       = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "password_reset_otps"
+
+    def is_valid(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        if self.used:
+            return False
+        return timezone.now() < self.created_at + timedelta(minutes=15)

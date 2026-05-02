@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Roles & Permissions{% endblock %}
+{% block page_title %}Roles & Permissions{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'accounts:users' %}">Admin</a>
+  <span class="sep">›</span> Roles & Permissions
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Roles & Permissions</h1>
+    <p>Define what each role can see and do across the system</p>
+  </div>
+  <a href="{% url 'accounts:role_create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Role
+  </a>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Role Name</th>
+          <th>Description</th>
+          <th>Users</th>
+          <th>Permissions</th>
+          <th>Type</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for role in roles %}
+        <tr>
+          <td class="fw-600">{{ role.name }}</td>
+          <td style="color:var(--text-muted);font-size:.85rem;">{{ role.description|default:"—" }}</td>
+          <td>
+            <span style="font-size:.88rem;">{{ role.users.count }}</span>
+          </td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
+              {% for perm in role.permissions.all %}
+                {% if perm.is_full_access %}
+                  <span class="badge badge-success" style="font-size:.65rem;">{{ perm.get_module_display }}</span>
+                {% elif perm.can_read %}
+                  <span class="badge badge-navy" style="font-size:.65rem;">{{ perm.get_module_display }}</span>
+                {% endif %}
+              {% empty %}
+                <span style="color:var(--text-muted);font-size:.82rem;">No permissions set</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td>
+            {% if role.is_system_role %}
+              <span class="badge badge-muted">System</span>
+            {% else %}
+              <span class="badge badge-navy">Custom</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if not role.is_system_role %}
+            <a href="{% url 'accounts:role_edit' role.pk %}" class="btn btn-outline btn-sm">Edit</a>
+            {% else %}
+            <span style="font-size:.78rem;color:var(--text-muted);">Protected</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">
+          <div class="empty-state">
+            <span class="empty-icon">🔐</span>
+            <div class="empty-title">No roles defined</div>
+            <div class="empty-sub">Create at least one role before adding users.</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

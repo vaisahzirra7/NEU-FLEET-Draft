@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}Edit Role{% else %}Add Role{% endif %}{% endblock %}
+{% block page_title %}{% if obj %}Edit Role{% else %}Add Role{% endif %}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'accounts:roles' %}">Roles</a>
+  <span class="sep">›</span> {% if obj %}{{ obj.name }}{% else %}Add{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        {% if obj %}Edit Role — {{ obj.name }}{% else %}Create New Role{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+
+      {% if obj and obj.is_system_role %}
+      <div style="background:var(--surface-2);border-left:3px solid var(--navy);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.85rem;color:var(--text-muted);">
+        This is a system-protected role and cannot be modified.
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Role Name <span class="req">*</span></label>
+          <input type="text" name="name" class="form-control"
+            value="{% if obj %}{{ obj.name }}{% endif %}"
+            placeholder="e.g. Transport Manager"
+            {% if obj and obj.is_system_role %}readonly style="background:var(--surface-2);"{% endif %}>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="form-control" rows="2"
+            placeholder="Brief description of this role's responsibilities"
+            {% if obj and obj.is_system_role %}readonly style="background:var(--surface-2);"{% endif %}>{% if obj %}{{ obj.description }}{% endif %}</textarea>
+        </div>
+
+        <!-- Permissions Matrix — rows built in the view and passed as `perm_rows` -->
+        <div style="margin-top:1.5rem;">
+          <div class="fw-600" style="font-size:.88rem;margin-bottom:.75rem;color:var(--navy);">Module Permissions</div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
+              <thead>
+                <tr style="background:var(--surface-2);">
+                  <th style="text-align:left;padding:.6rem .75rem;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);">Module</th>
+                  <th style="text-align:center;padding:.6rem .5rem;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);width:72px;">Read</th>
+                  <th style="text-align:center;padding:.6rem .5rem;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);width:72px;">Write</th>
+                  <th style="text-align:center;padding:.6rem .5rem;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);width:72px;">Edit</th>
+                  <th style="text-align:center;padding:.6rem .5rem;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);width:72px;">Delete</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in perm_rows %}
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:.55rem .75rem;font-weight:500;">{{ row.label }}</td>
+                  <td style="text-align:center;padding:.55rem .5rem;">
+                    <input type="checkbox" name="perm_{{ row.key }}_read"
+                      style="width:16px;height:16px;cursor:pointer;"
+                      {% if obj and obj.is_system_role %}disabled{% endif %}
+                      {% if row.can_read %}checked{% endif %}>
+                  </td>
+                  <td style="text-align:center;padding:.55rem .5rem;">
+                    <input type="checkbox" name="perm_{{ row.key }}_write"
+                      style="width:16px;height:16px;cursor:pointer;"
+                      {% if obj and obj.is_system_role %}disabled{% endif %}
+                      {% if row.can_write %}checked{% endif %}>
+                  </td>
+                  <td style="text-align:center;padding:.55rem .5rem;">
+                    <input type="checkbox" name="perm_{{ row.key }}_edit"
+                      style="width:16px;height:16px;cursor:pointer;"
+                      {% if obj and obj.is_system_role %}disabled{% endif %}
+                      {% if row.can_edit %}checked{% endif %}>
+                  </td>
+                  <td style="text-align:center;padding:.55rem .5rem;">
+                    <input type="checkbox" name="perm_{{ row.key }}_delete"
+                      style="width:16px;height:16px;cursor:pointer;"
+                      {% if obj and obj.is_system_role %}disabled{% endif %}
+                      {% if row.can_delete %}checked{% endif %}>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:.78rem;color:var(--text-muted);margin-top:.6rem;">
+            <strong>Read</strong> — view records &nbsp;|&nbsp;
+            <strong>Write</strong> — create new &nbsp;|&nbsp;
+            <strong>Edit</strong> — modify existing &nbsp;|&nbsp;
+            <strong>Delete</strong> — remove records
+          </div>
+        </div>
+
+        <div class="d-flex gap-1" style="margin-top:1.5rem;flex-wrap:wrap;">
+          {% if not obj or not obj.is_system_role %}
+          <button type="submit" class="btn btn-primary">
+            {% if obj %}Save Changes{% else %}Create Role{% endif %}
+          </button>
+          {% endif %}
+          <a href="{% url 'accounts:roles' %}" class="btn btn-outline">
+            {% if obj and obj.is_system_role %}Back{% else %}Cancel{% endif %}
+          </a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

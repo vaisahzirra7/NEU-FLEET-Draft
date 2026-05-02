@@ -93,8 +93,9 @@
   </div>
 </div>
 
-<!-- Stat Cards -->
+<!-- Stat Cards — only show cards relevant to the user's permissions -->
 <div class="stat-grid">
+  {% if can_see_coupons %}
   <div class="stat-card">
     <div class="stat-icon amber"><i class="fa-solid fa-ticket"></i></div>
     <div class="stat-body">
@@ -111,14 +112,20 @@
       <div class="stat-sub">Issued, not yet redeemed</div>
     </div>
   </div>
+  {% endif %}
+  {% if can_see_coupons or can_see_maintenance %}
   <div class="stat-card">
     <div class="stat-icon navy"><i class="fa-solid fa-naira-sign"></i></div>
     <div class="stat-body">
       <div class="stat-value">₦ {{ stats.monthly_spend|floatformat:0 }}</div>
       <div class="stat-label">Spend This Month</div>
-      <div class="stat-sub">Fuel + Maintenance</div>
+      <div class="stat-sub">
+        {% if can_see_coupons and can_see_maintenance %}Fuel + Maintenance{% elif can_see_coupons %}Fuel only{% else %}Maintenance only{% endif %}
+      </div>
     </div>
   </div>
+  {% endif %}
+  {% if can_see_vehicles %}
   <div class="stat-card">
     <div class="stat-icon success"><i class="fa-solid fa-truck"></i></div>
     <div class="stat-body">
@@ -127,6 +134,7 @@
       <div class="stat-sub">{{ stats.total_vehicles }} total in fleet</div>
     </div>
   </div>
+  {% endif %}
 </div>
 
 <!-- Main grid -->
@@ -156,6 +164,7 @@
     </div>
     {% endif %}
 
+    {% if can_see_audit %}
     <div class="card">
       <div class="card-header">
         <div class="card-title"><i class="fa-solid fa-clock card-icon"></i> Recent Activity</div>
@@ -178,9 +187,11 @@
         </table>
       </div>
     </div>
+    {% endif %}
   </div>
 
   <div style="display:flex;flex-direction:column;gap:1.25rem;">
+    {% if can_see_maintenance %}
     <div class="card">
       <div class="card-header">
         <div class="card-title"><i class="fa-solid fa-wrench card-icon"></i> Service Due Soon</div>
@@ -203,7 +214,9 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
 
+    {% if can_see_drivers %}
     <div class="card">
       <div class="card-header">
         <div class="card-title"><i class="fa-solid fa-id-card card-icon"></i> License Expiry Alerts</div>
@@ -226,8 +239,9 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
 
-    {% if top_vehicles %}
+    {% if top_vehicles and can_see_vehicles %}
     <div class="card">
       <div class="card-header">
         <div class="card-title"><i class="fa-solid fa-arrow-trend-up card-icon"></i> Top 5 by Cost (This Month)</div>

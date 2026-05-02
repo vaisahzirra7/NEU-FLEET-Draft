@@ -1,10 +1,152 @@
 {% extends "base.html" %}
-{% block title %}audit{% endblock %}
-{% block page_title %}audit{% endblock %}
+{% block title %}Audit Trail{% endblock %}
+{% block page_title %}Audit Trail{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> Audit Trail
+{% endblock %}
+
 {% block content %}
-<div class="card"><div class="card-body empty-state">
-  <span class="empty-icon">🔧</span>
-  <div class="empty-title">audit module</div>
-  <div class="empty-sub">Coming in Phase 3</div>
-</div></div>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Audit Trail</h1>
+    <p>Immutable log of all system actions &nbsp;·&nbsp; <strong>{{ total }}</strong> total records</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" style="display:flex;flex-wrap:wrap;gap:.65rem;align-items:flex-end;">
+
+      <div style="flex:1;min-width:140px;">
+        <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:.3rem;">User</label>
+        <input type="text" name="user" value="{{ filters.user }}"
+          placeholder="Search by name..." class="form-control" style="height:36px;font-size:.83rem;">
+      </div>
+
+      <div style="min-width:150px;">
+        <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:.3rem;">Action</label>
+        <select name="action" class="form-select" style="height:36px;font-size:.83rem;">
+          <option value="">All Actions</option>
+          {% for val, label in action_choices %}
+          <option value="{{ val }}" {% if filters.action == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="min-width:140px;">
+        <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:.3rem;">Module</label>
+        <select name="module" class="form-select" style="height:36px;font-size:.83rem;">
+          <option value="">All Modules</option>
+          {% for m in modules %}
+          <option value="{{ m }}" {% if filters.module == m %}selected{% endif %}>{{ m|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="min-width:130px;">
+        <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:.3rem;">From</label>
+        <input type="date" name="date_from" value="{{ filters.date_from }}"
+          class="form-control" style="height:36px;font-size:.83rem;">
+      </div>
+
+      <div style="min-width:130px;">
+        <label style="font-size:.75rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:.3rem;">To</label>
+        <input type="date" name="date_to" value="{{ filters.date_to }}"
+          class="form-control" style="height:36px;font-size:.83rem;">
+      </div>
+
+      <div style="display:flex;gap:.5rem;">
+        <button type="submit" class="btn btn-primary" style="height:36px;">Filter</button>
+        {% if filters.action or filters.module or filters.user or filters.date_from or filters.date_to %}
+        <a href="{% url 'audit:log' %}" class="btn btn-outline" style="height:36px;">Clear</a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- Log Table -->
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:150px;">Timestamp</th>
+          <th style="width:130px;">User</th>
+          <th style="width:120px;">Action</th>
+          <th style="width:110px;">Module</th>
+          <th style="width:90px;">Record</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-size:.78rem;color:var(--text-muted);white-space:nowrap;">
+            {{ log.timestamp|date:"d M Y" }}<br>
+            <span style="font-size:.72rem;">{{ log.timestamp|date:"H:i" }}</span>
+          </td>
+          <td>
+            <div style="font-size:.83rem;font-weight:500;">{{ log.user_name }}</div>
+          </td>
+          <td>
+            <span class="badge
+              {% if log.action == 'create' %}badge-success
+              {% elif log.action == 'edit' %}badge-navy
+              {% elif log.action == 'delete' %}badge-danger
+              {% elif log.action == 'login' or log.action == 'logout' %}badge-muted
+              {% elif log.action == 'coupon_issue' %}badge-amber
+              {% elif log.action == 'coupon_redeem' %}badge-success
+              {% elif log.action == 'coupon_cancel' %}badge-danger
+              {% else %}badge-muted{% endif %}">
+              {{ log.get_action_display }}
+            </span>
+          </td>
+          <td style="font-size:.82rem;color:var(--text-muted);">{{ log.module|title }}</td>
+          <td style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">#{{ log.record_id }}</td>
+          <td style="font-size:.82rem;color:var(--text-muted);">{{ log.detail|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <span class="empty-icon">📋</span>
+              <div class="empty-title">No audit logs found</div>
+              <div class="empty-sub">
+                {% if filters.action or filters.module or filters.user or filters.date_from or filters.date_to %}
+                  No records match your filters. <a href="{% url 'audit:log' %}">Clear filters</a>
+                {% else %}
+                  System actions will appear here as they occur.
+                {% endif %}
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page.has_other_pages %}
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;border-top:1px solid var(--border);font-size:.82rem;">
+    <div style="color:var(--text-muted);">
+      Page {{ page.number }} of {{ page.paginator.num_pages }}
+      &nbsp;·&nbsp; {{ total }} total records
+    </div>
+    <div style="display:flex;gap:.4rem;">
+      {% if page.has_previous %}
+      <a href="?{% if filters.action %}action={{ filters.action }}&{% endif %}{% if filters.module %}module={{ filters.module }}&{% endif %}{% if filters.user %}user={{ filters.user }}&{% endif %}{% if filters.date_from %}date_from={{ filters.date_from }}&{% endif %}{% if filters.date_to %}date_to={{ filters.date_to }}&{% endif %}page={{ page.previous_page_number }}"
+        class="btn btn-outline btn-sm">← Prev</a>
+      {% endif %}
+      {% if page.has_next %}
+      <a href="?{% if filters.action %}action={{ filters.action }}&{% endif %}{% if filters.module %}module={{ filters.module }}&{% endif %}{% if filters.user %}user={{ filters.user }}&{% endif %}{% if filters.date_from %}date_from={{ filters.date_from }}&{% endif %}{% if filters.date_to %}date_to={{ filters.date_to }}&{% endif %}page={{ page.next_page_number }}"
+        class="btn btn-outline btn-sm">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
