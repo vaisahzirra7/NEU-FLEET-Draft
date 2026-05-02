@@ -1,4 +1,11 @@
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env before BASE_DIR is needed
+load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+
+import os
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -17,7 +24,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Project apps — one per module
+    # Project apps — All modules here
     'accounts',
     'vehicles',
     'drivers',
@@ -62,8 +69,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # ── Database ───────────────────────────────────────────────────
-# Switch to MySQL for production. For local dev you can use SQLite
-# by swapping the ENGINE line.
+# Switch to MySQL for production. 
+# by swapping the ENGINE line, and updating NAME, USER, PASSWORD as needed.
 DATABASES = {
     'default': {
         'ENGINE':   'django.db.backends.mysql',
@@ -118,10 +125,26 @@ REPORT_LOGO_PATH = BASE_DIR / "static" / "images" / "neu_logo.png"
 REPORT_LOGO_URL = "/static/images/neu_logo.png"
 
 # ── Email (optional — configure when SMTP details are available) ──
-EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'  # dev mode
+# EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'  # dev mode
+
+
+# Email (Settings for development)
+# ----- Use the below SMTP settings for development. Remember to set env vars.
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.zoho.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD')
+DEFAULT_FROM_EMAIL  = EMAIL_HOST_USER
+
+
+# 
+# 
+# ----- Use the below SMTP settings for production. Remember to set the EMAIL_PASSWORD env var in production.
 # EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'     # production
-# EMAIL_HOST        = 'smtp.youruniversity.edu.ng'
-# EMAIL_PORT        = 587
+# EMAIL_HOST        = 'smtp.zoho.com'
+# EMAIL_PORT        = #587 for TLS, 465 for SSL
 # EMAIL_USE_TLS     = True
 # EMAIL_HOST_USER   = 'fleet@youruniversity.edu.ng'
 # EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD')
