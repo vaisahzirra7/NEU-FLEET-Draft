@@ -12,9 +12,16 @@
     <h1>{{ driver.full_name }}</h1>
     <p>{{ driver.staff_id }} &nbsp;·&nbsp; {{ driver.get_license_class_display }}</p>
   </div>
-  {% if can_edit %}
-  <a href="{% url 'drivers:edit' driver.pk %}" class="btn btn-outline">Edit Driver</a>
-  {% endif %}
+  <div class="d-flex gap-1">
+    {% if can_edit and driver.is_license_expired %}
+    <button class="btn btn-danger" onclick="document.getElementById('renewModal').style.display='flex'">
+      🔄 Renew Licence
+    </button>
+    {% endif %}
+    {% if can_edit %}
+    <a href="{% url 'drivers:edit' driver.pk %}" class="btn btn-outline">Edit Driver</a>
+    {% endif %}
+  </div>
 </div>
 
 <div class="dash-grid">
@@ -54,6 +61,32 @@
       </div>
     </div>
 
+    <!-- Licence Renewal History -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Licence Renewal History</div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>New Licence No.</th><th>New Expiry</th><th>Updated By</th><th>Date</th><th>Notes</th></tr></thead>
+          <tbody>
+            {% for r in renewals %}
+            <tr>
+              <td class="font-mono">{{ r.new_license_no }}</td>
+              <td>{{ r.new_expiry }}</td>
+              <td style="font-size:.82rem;">{{ r.renewed_by }}</td>
+              <td style="font-size:.78rem;color:var(--text-muted);">{{ r.renewed_at|date:"j M Y H:i" }}</td>
+              <td style="font-size:.78rem;color:var(--text-muted);">{{ r.notes|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No renewal records yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Coupon History -->
     <div class="card">
       <div class="card-header"><div class="card-title">Coupon History</div></div>
       <div class="table-wrapper">
@@ -100,4 +133,50 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Licence Renewal Modal -->
+{% if can_edit and driver.is_license_expired %}
+<div id="renewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:12px;padding:2rem;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+      <div>
+        <div style="font-size:1.05rem;font-weight:700;color:var(--text);">Renew Driver Licence</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem;">{{ driver.full_name }}</div>
+      </div>
+      <button onclick="document.getElementById('renewModal').style.display='none'"
+        style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;">✕</button>
+    </div>
+
+    <form method="post" action="{% url 'drivers:renew_licence' driver.pk %}" novalidate>
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">New Licence Number <span class="req">*</span></label>
+        <input type="text" name="new_license_no" class="form-control"
+          value="{{ driver.license_no }}"
+          placeholder="Enter new or same licence number">
+        <div class="form-hint">Enter the renewed licence number. Can be the same if the number didn't change.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">New Expiry Date <span class="req">*</span></label>
+        <input type="date" name="new_expiry" class="form-control" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2"
+          placeholder="Optional — e.g. renewed at FRSC Gombe office"></textarea>
+      </div>
+
+      <div class="d-flex gap-1">
+        <button type="submit" class="btn btn-primary">Save Renewal</button>
+        <button type="button" class="btn btn-outline"
+          onclick="document.getElementById('renewModal').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

@@ -180,8 +180,9 @@ def edit_view(request, pk):
         vehicle.fuel_type         = request.POST.get("fuel_type", vehicle.fuel_type)
         vehicle.department_id     = request.POST.get("department", vehicle.department_id)
         vehicle.default_driver_id = request.POST.get("default_driver") or None
-        vehicle.status            = request.POST.get("status", vehicle.status)
-        vehicle.notes             = request.POST.get("notes", "").strip()
+        vehicle.status             = request.POST.get("status", vehicle.status)
+        vehicle.notes              = request.POST.get("notes", "").strip()
+        vehicle.needs_monthly_fuel = request.POST.get("needs_monthly_fuel") == "on"
         vehicle.save()
 
         AuditLog.objects.create(
@@ -200,3 +201,50 @@ def edit_view(request, pk):
         "type_choices": Vehicle.TYPE_CHOICES,
         "fuel_choices": Vehicle.FUEL_CHOICES,
     })
+
+
+@login_required
+def fleet_licence_update(request):
+    """Update the fleet-wide vehicle licence expiry date."""
+    if not request.user.has_module_perm("vehicles", "edit"):
+        return HttpResponseForbidden()
+    from .models import FleetLicenceExpiry
+    if request.method == "POST":
+        expiry_date = request.POST.get("expiry_date", "").strip()
+        notes       = request.POST.get("notes", "").strip()
+        if not expiry_date:
+            messages.error(request, "Expiry date is required.")
+            return redirect("dashboard")
+        FleetLicenceExpiry.objects.update_or_create(
+            pk=1,
+            defaults={
+                "expiry_date": expiry_date,
+                "notes":       notes,
+                "updated_by":  request.user.full_name,
+            }
+        )
+        from audit.models import AuditLog
+        AuditLog.objects.create(
+            user=request.user, user_name=request.user.full_name,
+            action=AuditLog.ACTION_EDIT, module="vehicles",
+            record_id="fleet_licence",
+            detail=f"Updated fleet licence expiry to {expiry_date}"
+        )
+        messages.success(request, f"Fleet vehicle licence expiry updated to {expiry_date}.")
+    return redirect("dashboard")
+
+
+@login_required
+def dismiss_fuel_reminder(request, pk):
+    """Dismiss the monthly fuel reminder for a vehicle for the current month."""
+    from .models import MonthlyFuelDismissal
+    from django.utils import timezone
+    if request.method == "POST":
+        vehicle = get_object_or_404(Vehicle, pk=pk)
+        now = timezone.now()
+        MonthlyFuelDismissal.objects.get_or_create(
+            vehicle=vehicle, month=now.month, year=now.year,
+            defaults={"dismissed_by": request.user.full_name}
+        )
+        messages.success(request, f"Fuel reminder for {vehicle.plate_number} dismissed for this month.")
+    return redirect("dashboard")

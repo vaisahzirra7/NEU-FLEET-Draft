@@ -52,7 +52,11 @@ class Vehicle(models.Model):
     )
 
     # ── status ──
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
+    status             = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
+    needs_monthly_fuel = models.BooleanField(
+        default=False,
+        help_text="Flag vehicles that should receive fuel every month. Used to generate monthly fuel reminders."
+    )
     notes  = models.TextField(blank=True)
 
     # ── meta ──
@@ -73,3 +77,60 @@ class Vehicle(models.Model):
     def decommission(self):
         self.status = self.STATUS_INACTIVE
         self.save(update_fields=["status", "updated_at"])
+
+
+class FleetLicenceExpiry(models.Model):
+    """
+    Singleton model — stores the single fleet-wide vehicle licence expiry date.
+    Most vehicles are renewed together, so one record covers the whole fleet.
+    """
+    expiry_date   = models.DateField(help_text="Date the fleet vehicle licences expire.")
+    notes         = models.TextField(blank=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+    updated_by    = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        db_table = "fleet_licence_expiry"
+        verbose_name = "Fleet Licence Expiry"
+
+    def __str__(self):
+        return f"Fleet Licence — expires {self.expiry_date}"
+
+    @classmethod
+    def get(cls):
+        """Return the singleton instance, or None if not set."""
+        return cls.objects.first()
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        return self.expiry_date < timezone.now().date()
+
+    @property
+    def days_until_expiry(self):
+        from django.utils import timezone
+        return (self.expiry_date - timezone.now().date()).days
+
+    @property
+    def is_expiring_soon(self):
+        """True if expiring within 60 days."""
+        return self.days_until_expiry <= 60
+
+
+class MonthlyFuelDismissal(models.Model):
+    """
+    Records when a user dismisses the monthly fuel reminder for a vehicle.
+    Prevents the reminder from reappearing until the next month.
+    """
+    vehicle      = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="fuel_dismissals")
+    month        = models.PositiveSmallIntegerField(help_text="Month number (1-12)")
+    year         = models.PositiveSmallIntegerField(help_text="Year")
+    dismissed_by = models.CharField(max_length=150)
+    dismissed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table  = "monthly_fuel_dismissals"
+        unique_together = [["vehicle", "month", "year"]]
+
+    def __str__(self):
+        return f"{self.vehicle.plate_number} — {self.month}/{self.year}"

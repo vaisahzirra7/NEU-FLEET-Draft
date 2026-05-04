@@ -1,9 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.db.models import Q
-from .models import Driver
+from .models import Driver, DriverLicenceRenewal
 from audit.models import AuditLog
 
 
@@ -40,14 +40,59 @@ def detail_view(request, pk):
     if not request.user.has_module_perm("drivers", "read"):
         return HttpResponseForbidden()
 
-    driver  = get_object_or_404(Driver, pk=pk)
-    coupons = driver.coupons.select_related("vehicle").order_by("-issue_datetime")[:15]
+    driver   = get_object_or_404(Driver, pk=pk)
+    coupons  = driver.coupons.select_related("vehicle").order_by("-issue_datetime")[:15]
+    renewals = driver.licence_renewals.all()
 
     return render(request, "drivers/detail.html", {
-        "driver": driver,
-        "coupons": coupons,
+        "driver":   driver,
+        "coupons":  coupons,
+        "renewals": renewals,
         "can_edit": request.user.has_module_perm("drivers", "edit"),
     })
+
+
+@login_required
+def renew_licence(request, pk):
+    """AJAX/POST — record a driver licence renewal."""
+    if not request.user.has_module_perm("drivers", "edit"):
+        return HttpResponseForbidden()
+
+    driver = get_object_or_404(Driver, pk=pk)
+
+    if request.method == "POST":
+        new_license_no = request.POST.get("new_license_no", "").strip()
+        new_expiry     = request.POST.get("new_expiry", "").strip()
+        notes          = request.POST.get("notes", "").strip()
+
+        if not new_license_no or not new_expiry:
+            messages.error(request, "Licence number and new expiry date are required.")
+            return redirect("drivers:detail", pk=pk)
+
+        # Update the driver's licence fields
+        driver.license_no     = new_license_no
+        driver.license_expiry = new_expiry
+        driver.save(update_fields=["license_no", "license_expiry", "updated_at"])
+
+        # Record renewal history
+        DriverLicenceRenewal.objects.create(
+            driver         = driver,
+            new_license_no = new_license_no,
+            new_expiry     = new_expiry,
+            renewed_by     = request.user.full_name,
+            notes          = notes,
+        )
+
+        AuditLog.objects.create(
+            user=request.user, user_name=request.user.full_name,
+            action=AuditLog.ACTION_EDIT, module="drivers",
+            record_id=str(driver.pk),
+            detail=f"Renewed licence for {driver.full_name} — new expiry {new_expiry}"
+        )
+        messages.success(request, f"Licence renewed for {driver.full_name}. New expiry: {new_expiry}.")
+        return redirect("drivers:detail", pk=pk)
+
+    return redirect("drivers:detail", pk=pk)
 
 
 @login_required

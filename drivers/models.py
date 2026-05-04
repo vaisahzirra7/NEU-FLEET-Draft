@@ -56,3 +56,20 @@ class Driver(models.Model):
     def days_until_license_expiry(self):
         delta = self.license_expiry - timezone.now().date()
         return delta.days
+
+
+class DriverLicenceRenewal(models.Model):
+    """Records each time a driver's licence is renewed."""
+    driver          = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name="licence_renewals")
+    new_license_no  = models.CharField(max_length=50, help_text="New licence number (can be same if renewal)")
+    new_expiry      = models.DateField(help_text="New expiry date after renewal")
+    renewed_by      = models.CharField(max_length=150, help_text="Name of staff who recorded this renewal")
+    notes           = models.TextField(blank=True)
+    renewed_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "driver_licence_renewals"
+        ordering = ["-renewed_at"]
+
+    def __str__(self):
+        return f"{self.driver.full_name} — renewed {self.new_expiry}"

@@ -65,32 +65,136 @@ def password_reset_request(request):
 
     if request.method == "POST":
         from .models import PasswordResetOTP
-        import random
-        from django.core.mail import send_mail
+        import random, os
+        from django.core.mail import EmailMultiAlternatives
+        from django.core.mail import SafeMIMEMultipart
+        from email.mime.image import MIMEImage
         from django.conf import settings
 
         email = request.POST.get("email", "").strip()
-        # Always show success even if email not found (security)
         try:
             user = User.objects.get(email=email, is_active=True)
             otp  = str(random.randint(100000, 999999))
             PasswordResetOTP.objects.create(user=user, otp=otp)
 
-            send_mail(
-                subject="VanaraFleetsOps — Password Reset OTP",
-                message=(
-                    f"Hello {user.full_name},\n\n"
-                    f"Your password reset OTP is: {otp}\n\n"
-                    f"This code expires in 15 minutes. Do not share it with anyone.\n\n"
-                    f"If you did not request this, please ignore this email.\n\n"
-                    f"— VanaraFleetsOps, North-Eastern University, Gombe"
-                ),
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
-                recipient_list=[user.email],
-                fail_silently=True,
+            otp_display = " ".join(otp)
+
+            html_body = f"""<!DOCTYPE html>
+
+            
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Password Reset OTP</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f2f7;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f7;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#0f2044;border-radius:16px 16px 0 0;padding:28px 36px;text-align:center;">
+            <img src="cid:neu_logo" alt="NEU Logo"
+              style="width:72px;height:72px;object-fit:contain;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;">
+            <div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;">VanaraFleetsOps</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:4px;">North-Eastern University, Gombe &nbsp;&middot;&nbsp; Fleet Management System</div>
+          </td>
+        </tr>
+
+        <!-- Amber accent bar -->
+        <tr><td style="background:#c8813a;height:4px;"></td></tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="background:#ffffff;padding:40px 36px 32px;">
+            <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#0f2044;">Hello, {user.full_name}</p>
+            <p style="margin:0 0 28px;font-size:14px;color:#5a6480;line-height:1.7;">
+              We received a request to reset the password for your VanaraFleetsOps account.
+              Use the one-time code below to proceed. The code expires in <strong>15 minutes</strong>.
+            </p>
+
+            <!-- OTP Block -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr>
+                <td align="center" style="background:#f4f6fa;border:1px solid #dde2ed;border-radius:12px;padding:28px 20px;">
+                  <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8a96b3;margin-bottom:12px;">Your Reset Code</div>
+                  <div style="font-size:42px;font-weight:800;letter-spacing:.18em;color:#0f2044;font-family:'Courier New',monospace;line-height:1;">{otp_display}</div>
+                  <div style="font-size:12px;color:#b0b8cc;margin-top:12px;">Valid for 15 minutes &nbsp;&middot;&nbsp; Single use only</div>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 12px;font-size:13px;color:#5a6480;line-height:1.7;">
+              Enter this code on the password reset page to continue. Once used, the code will no longer be valid.
+            </p>
+            <p style="margin:0;font-size:13px;color:#8a96b3;line-height:1.7;">
+              If you did not request a password reset, you can safely ignore this email.
+              Your password will remain unchanged.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Security notice -->
+        <tr>
+          <td style="background:#fdf8f0;border-left:3px solid #c8813a;padding:16px 36px;">
+            <p style="margin:0;font-size:12px;color:#8a6020;line-height:1.6;">
+              <strong>Security reminder:</strong> We will never ask for your password or OTP.
+              Do not share this code with anyone.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f4f6fa;border-radius:0 0 16px 16px;padding:20px 36px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#8a96b3;">
+              This email was sent by VanaraFleetsOps on behalf of<br>
+              <strong style="color:#5a6480;">North-Eastern University, Gombe &nbsp;&middot;&nbsp; Fleet Management System</strong>
+            </p>
+            <p style="margin:8px 0 0;font-size:11px;color:#b0b8cc;">
+              This is an automated message. Please do not reply to this email.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+            plain_body = (
+                f"Hello {user.full_name},\n\n"
+                f"Your VanaraFleetsOps password reset code is: {otp}\n\n"
+                f"This code expires in 15 minutes. Do not share it with anyone.\n\n"
+                f"If you did not request this, please ignore this email.\n\n"
+                f"— VanaraFleetsOps, North-Eastern University, Gombe"
             )
+
+            msg = EmailMultiAlternatives(
+                subject="VanaraFleetsOps — Your Password Reset Code",
+                body=plain_body,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+                to=[user.email],
+            )
+            msg.attach_alternative(html_body, "text/html")
+            msg.mixed_subtype = "related"
+
+            # Attach logo as CID inline image
+            logo_path = getattr(settings, "REPORT_LOGO_PATH", None)
+            if logo_path and os.path.exists(str(logo_path)):
+                with open(str(logo_path), "rb") as f:
+                    logo_img = MIMEImage(f.read(), _subtype="png")
+                    logo_img.add_header("Content-ID", "<neu_logo>")
+                    logo_img.add_header("Content-Disposition", "inline", filename="neu_logo.png")
+                    msg.attach(logo_img)
+
+            msg.send(fail_silently=True)
+
         except User.DoesNotExist:
-            pass  # Don't reveal if email exists
+            pass
 
         # Store email in session to carry to OTP verification step
         request.session["reset_email"] = email

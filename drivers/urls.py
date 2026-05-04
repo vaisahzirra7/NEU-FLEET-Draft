@@ -4,8 +4,9 @@ from . import views
 app_name = "drivers"
 
 urlpatterns = [
-    path("",               views.list_view,   name="list"),
-    path("add/",           views.create_view, name="create"),
-    path("<int:pk>/",      views.detail_view, name="detail"),
-    path("<int:pk>/edit/", views.edit_view,   name="edit"),
+    path("",                        views.list_view,    name="list"),
+    path("add/",                    views.create_view,  name="create"),
+    path("<int:pk>/",               views.detail_view,  name="detail"),
+    path("<int:pk>/edit/",          views.edit_view,    name="edit"),
+    path("<int:pk>/renew-licence/", views.renew_licence, name="renew_licence"),
 ]

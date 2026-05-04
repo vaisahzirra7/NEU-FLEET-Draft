@@ -349,11 +349,34 @@ def dashboard(request):
 
     recent_activity = AuditLog.objects.select_related("user")[:10]
 
+    # ── Fleet licence alert ──
+    from vehicles.models import FleetLicenceExpiry, MonthlyFuelDismissal
+    fleet_licence = FleetLicenceExpiry.get()
+    if fleet_licence and (fleet_licence.is_expired or fleet_licence.is_expiring_soon):
+        alerts.append({
+            "type":   "danger" if fleet_licence.is_expired else "warning",
+            "title":  "Fleet vehicle licences expired" if fleet_licence.is_expired else "Fleet vehicle licences expiring soon",
+            "detail": f"Expiry: {fleet_licence.expiry_date} ({fleet_licence.days_until_expiry} days left)" if not fleet_licence.is_expired else f"Expired on {fleet_licence.expiry_date}",
+            "url":    "/vehicles/",
+        })
+
+    # ── Monthly fuel reminders ──
+    monthly_fuel_vehicles = []
+    if today.day >= 1:  # Show from start of month
+        dismissed_ids = MonthlyFuelDismissal.objects.filter(
+            month=today.month, year=today.year
+        ).values_list("vehicle_id", flat=True)
+        monthly_fuel_vehicles = Vehicle.objects.filter(
+            needs_monthly_fuel=True, status=Vehicle.STATUS_ACTIVE, **fdept
+        ).exclude(id__in=dismissed_ids).select_related("department")
+
     return render(request, "dashboard/dashboard.html", {
         "stats": stats,
         "alerts": alerts,
         "service_due": service_due,
         "license_alerts": license_alerts,
+        "fleet_licence": fleet_licence,
+        "monthly_fuel_vehicles": monthly_fuel_vehicles,
         "top_vehicles": top_vehicles,
         "recent_activity": recent_activity,
         # Permission flags for dynamic dashboard
@@ -364,6 +387,8 @@ def dashboard(request):
         "can_see_drivers":     request.user.has_module_perm("drivers", "read"),
         "can_see_reports":     request.user.has_module_perm("reports", "read"),
         "can_see_audit":       request.user.has_module_perm("audit", "read"),
+        "can_edit_vehicles":   request.user.has_module_perm("vehicles", "edit"),
+        "can_issue_coupons":   request.user.has_module_perm("coupons", "write"),
     })
 
 

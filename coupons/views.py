@@ -114,6 +114,17 @@ def create_view(request):
                 record_id=str(coupon.pk),
                 detail=f"Issued coupon {coupon.coupon_id} for {coupon.vehicle.plate_number}"
             )
+
+            # Auto-dismiss monthly fuel reminder for this vehicle if it's flagged
+            if coupon.vehicle.needs_monthly_fuel:
+                from vehicles.models import MonthlyFuelDismissal
+                from django.utils import timezone as tz
+                now = tz.now()
+                MonthlyFuelDismissal.objects.get_or_create(
+                    vehicle=coupon.vehicle, month=now.month, year=now.year,
+                    defaults={"dismissed_by": request.user.full_name}
+                )
+
             messages.success(request, f"Coupon {coupon.coupon_id} issued successfully.")
             return redirect("coupons:print_slip", pk=coupon.pk)
 

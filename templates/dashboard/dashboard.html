@@ -137,6 +137,41 @@
   {% endif %}
 </div>
 
+<!-- Monthly Fuel Reminders -->
+{% if monthly_fuel_vehicles and can_issue_coupons %}
+<div class="card" style="margin-bottom:1.25rem;border-left:3px solid var(--amber);">
+  <div class="card-header">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" style="margin-right:.4rem;"><path d="M3 22V8l9-6 9 6v14"/><path d="M9 22V12h6v10"/></svg>
+      Monthly Fuel Reminders
+    </div>
+    <span style="font-size:.75rem;color:var(--text-muted);">{{ monthly_fuel_vehicles|length }} vehicle{{ monthly_fuel_vehicles|length|pluralize }} pending this month</span>
+  </div>
+  <div class="card-body" style="padding:.5rem 1.25rem 1rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
+      {% for v in monthly_fuel_vehicles %}
+      <div style="display:flex;align-items:center;gap:.75rem;background:var(--surface-2);border-radius:var(--radius);padding:.6rem .9rem;min-width:200px;">
+        <div style="flex:1;">
+          <div class="fw-600" style="font-size:.85rem;">{{ v.plate_number }}</div>
+          <div style="font-size:.73rem;color:var(--text-muted);">{{ v.make }} {{ v.model }} · {{ v.department.name }}</div>
+        </div>
+        <div style="display:flex;gap:.4rem;">
+          <a href="{% url 'coupons:create' %}?vehicle={{ v.pk }}"
+            class="btn btn-amber btn-sm" style="font-size:.73rem;padding:.3rem .65rem;">Issue</a>
+          <form method="post" action="{% url 'vehicles:dismiss_fuel' v.pk %}"
+            onsubmit="return confirm('Dismiss fuel reminder for {{ v.plate_number }} this month?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline btn-sm"
+              style="font-size:.73rem;padding:.3rem .65rem;color:var(--text-muted);">Dismiss</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Main grid -->
 <div class="dash-grid">
   <div style="display:flex;flex-direction:column;gap:1.25rem;">
@@ -191,6 +226,46 @@
   </div>
 
   <div style="display:flex;flex-direction:column;gap:1.25rem;">
+    {% if can_see_vehicles %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-id-card card-icon"></i> Fleet Vehicle Licences Expiry</div>
+        {% if can_edit_vehicles %}
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('fleetLicenceModal').style.display='flex'">Update</button>
+        {% endif %}
+      </div>
+      <div class="card-body" style="padding:.85rem 1.25rem;">
+        {% if fleet_licence %}
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:.8rem;color:var(--text-muted);">Expiry Date</div>
+              <div class="fw-600" style="font-size:.95rem;">{{ fleet_licence.expiry_date }}</div>
+            </div>
+            {% if fleet_licence.is_expired %}
+              <span class="badge badge-danger">Expired</span>
+            {% elif fleet_licence.days_until_expiry <= 30 %}
+              <span class="badge badge-warning">{{ fleet_licence.days_until_expiry }}d left</span>
+            {% elif fleet_licence.days_until_expiry <= 60 %}
+              <span class="badge badge-amber">{{ fleet_licence.days_until_expiry }}d left</span>
+            {% else %}
+              <span class="badge badge-success">Valid</span>
+            {% endif %}
+          </div>
+          {% if fleet_licence.notes %}
+          <div style="font-size:.75rem;color:var(--text-muted);margin-top:.5rem;">{{ fleet_licence.notes }}</div>
+          {% endif %}
+        {% else %}
+          <div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-size:.83rem;">
+            No fleet licence expiry set.
+            {% if can_edit_vehicles %}
+            <br><a href="#" onclick="document.getElementById('fleetLicenceModal').style.display='flex'" style="color:var(--navy);">Set expiry date →</a>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     {% if can_see_maintenance %}
     <div class="card">
       <div class="card-header">
@@ -299,4 +374,38 @@ function setGreeting() {
 }
 setGreeting();
 </script>
+
+{% if can_edit_vehicles %}
+<div id="fleetLicenceModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:12px;padding:2rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+      <div style="font-size:1.05rem;font-weight:700;color:var(--text);">Update Fleet Licence Expiry</div>
+      <button onclick="document.getElementById('fleetLicenceModal').style.display='none'"
+        style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;">✕</button>
+    </div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.6;">
+      Most vehicle licences are renewed together, set one expiry date for the entire fleet.
+      An alert will appear when within 60 days of expiry.
+    </p>
+    <form method="post" action="{% url 'vehicles:fleet_licence_update' %}" novalidate>
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Expiry Date <span class="req">*</span></label>
+        <input type="date" name="expiry_date" class="form-control" required
+          value="{% if fleet_licence %}{{ fleet_licence.expiry_date|date:'Y-m-d' }}{% endif %}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2"
+          placeholder="e.g. All vehicles were renewed at FRSC">{% if fleet_licence %}{{ fleet_licence.notes }}{% endif %}</textarea>
+      </div>
+      <div class="d-flex gap-1">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" class="btn btn-outline"
+          onclick="document.getElementById('fleetLicenceModal').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
