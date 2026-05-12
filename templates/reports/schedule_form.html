@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}Edit Schedule{% else %}New Schedule{% endif %}{% endblock %}
+{% block page_title %}{% if obj %}Edit Schedule{% else %}New Schedule{% endif %}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a>
+  <span class="sep">›</span> <a href="{% url 'reports:schedule_list' %}">Schedules</a>
+  <span class="sep">›</span> {% if obj %}{{ obj.name }}{% else %}New{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:580px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if obj %}Edit — {{ obj.name }}{% else %}Create Report Schedule{% endif %}</div>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Schedule Name <span class="req">*</span></label>
+          <input type="text" name="name" class="form-control {% if errors.name %}field-error{% endif %}"
+            value="{% if obj %}{{ obj.name }}{% elif post.name %}{{ post.name }}{% endif %}"
+            placeholder="e.g. Monthly Fleet Summary — Management">
+          {% if errors.name %}<div class="error-msg">{{ errors.name }}</div>{% endif %}
+          <div class="form-hint">A friendly name to identify this schedule.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Report Type <span class="req">*</span></label>
+          <select name="report_type" class="form-select {% if errors.report_type %}field-error{% endif %}">
+            <option value="">— Select Report —</option>
+            {% for val, label in report_choices %}
+            <option value="{{ val }}"
+              {% if obj and obj.report_type == val %}selected
+              {% elif post.report_type == val %}selected{% endif %}>
+              {{ label }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if errors.report_type %}<div class="error-msg">{{ errors.report_type }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Format</label>
+          <div style="display:flex;gap:1rem;margin-top:.35rem;">
+            {% for val, label in format_choices %}
+            <label style="display:flex;align-items:center;gap:.45rem;cursor:pointer;font-size:.87rem;">
+              <input type="radio" name="format" value="{{ val }}"
+                {% if obj and obj.format == val %}checked
+                {% elif not obj and val == 'pdf' %}checked
+                {% elif post.format == val %}checked{% endif %}
+                style="width:16px;height:16px;">
+              {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Send Day <span class="req">*</span></label>
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            <span style="font-size:.85rem;color:var(--text-muted);white-space:nowrap;">Day</span>
+            <input type="number" name="send_day" class="form-control {% if errors.send_day %}field-error{% endif %}"
+              min="1" max="28" style="width:80px;"
+              value="{% if obj %}{{ obj.send_day }}{% elif post.send_day %}{{ post.send_day }}{% else %}1{% endif %}">
+            <span style="font-size:.85rem;color:var(--text-muted);white-space:nowrap;">of each month</span>
+          </div>
+          {% if errors.send_day %}<div class="error-msg">{{ errors.send_day }}</div>{% endif %}
+          <div class="form-hint">
+            Enter a day between 1 and 31. Day 1 = 1st of each month.
+            Use 28 to always send near month-end safely.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Recipients <span class="req">*</span></label>
+          <textarea name="recipients" class="form-control {% if errors.recipients %}field-error{% endif %}"
+            rows="3" placeholder="email1@neu.edu.ng, email2@neu.edu.ng">{% if obj %}{{ obj.recipients }}{% elif post.recipients %}{{ post.recipients }}{% endif %}</textarea>
+          {% if errors.recipients %}<div class="error-msg">{{ errors.recipients }}</div>{% endif %}
+          <div class="form-hint">Comma-separated list of email addresses to receive this report.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+            <input type="checkbox" name="is_active"
+              {% if obj and obj.is_active %}checked
+              {% elif not obj %}checked{% endif %}
+              style="width:16px;height:16px;">
+            Active
+          </label>
+          <div class="form-hint">Inactive schedules are skipped when the send command runs.</div>
+        </div>
+
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn btn-primary">
+            {% if obj %}Save Changes{% else %}Create Schedule{% endif %}
+          </button>
+          <a href="{% url 'reports:schedule_list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

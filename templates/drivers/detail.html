@@ -68,7 +68,7 @@
       </div>
       <div class="table-wrapper">
         <table class="data-table">
-          <thead><tr><th>New Licence No.</th><th>New Expiry</th><th>Updated By</th><th>Date</th><th>Notes</th></tr></thead>
+          <thead><tr><th>New Licence No.</th><th>New Expiry</th><th>Renewed By</th><th>Date</th><th>Notes</th></tr></thead>
           <tbody>
             {% for r in renewals %}
             <tr>
@@ -80,6 +80,35 @@
             </tr>
             {% empty %}
             <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No renewal records yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Vehicle Assignment History -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Vehicle Assignment History</div></div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Vehicle</th><th>Assigned</th><th>By</th><th>Notes</th></tr></thead>
+          <tbody>
+            {% for a in assignments %}
+            <tr>
+              <td>
+                {% if a.vehicle %}
+                <a href="{% url 'vehicles:detail' a.vehicle.pk %}" class="fw-600">{{ a.vehicle.plate_number }}</a>
+                <div style="font-size:.75rem;color:var(--text-muted);">{{ a.vehicle.make }} {{ a.vehicle.model }}</div>
+                {% else %}
+                <span class="fw-600">{{ a.driver_name }}</span>
+                {% endif %}
+              </td>
+              <td style="font-size:.78rem;color:var(--text-muted);">{{ a.assigned_at|date:"j M Y H:i" }}</td>
+              <td style="font-size:.82rem;">{{ a.assigned_by }}</td>
+              <td style="font-size:.78rem;color:var(--text-muted);">{{ a.notes|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No assignment records yet. History is recorded when a driver is assigned via the vehicle edit form.</td></tr>
             {% endfor %}
           </tbody>
         </table>

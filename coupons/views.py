@@ -146,6 +146,113 @@ def create_view(request):
 
 
 @login_required
+def bulk_issue_view(request):
+    """Bulk coupon issuance — issue coupons to multiple vehicles at once."""
+    if not request.user.has_module_perm("coupons", "write"):
+        return HttpResponseForbidden()
+
+    dept_q        = {} if request.user.is_system_admin or not request.user.department else {"department": request.user.department}
+    vehicles      = Vehicle.objects.filter(status=Vehicle.STATUS_ACTIVE, **dept_q).select_related("default_driver", "department").order_by("plate_number")
+    fuel_stations = Vendor.objects.filter(type=Vendor.TYPE_FUEL, is_active=True).order_by("name")
+    drivers       = Driver.objects.filter(status=Driver.STATUS_ACTIVE).order_by("full_name")
+
+    if request.method == "POST":
+        station_id      = request.POST.get("fuel_station", "")
+        cost_raw        = request.POST.get("cost_per_litre", "").strip()
+        expiry_date     = request.POST.get("expiry_date", "").strip()
+        vehicle_ids     = request.POST.getlist("vehicle_ids")
+
+        errors = {}
+        if not station_id:  errors["fuel_station"]   = "Fuel station is required."
+        if not cost_raw:    errors["cost_per_litre"] = "Cost per litre is required."
+        if not vehicle_ids: errors["vehicles"]       = "Select at least one vehicle."
+
+        cost = None
+        if cost_raw:
+            try:
+                cost = Decimal(cost_raw)
+                if cost <= 0:
+                    errors["cost_per_litre"] = "Cost must be greater than zero."
+            except InvalidOperation:
+                errors["cost_per_litre"] = "Enter a valid number."
+
+        # Per-vehicle litres validation
+        vehicle_rows = []
+        if not errors:
+            for vid in vehicle_ids:
+                litres_raw = request.POST.get(f"litres_{vid}", "").strip()
+                driver_id  = request.POST.get(f"driver_{vid}", "")
+                if not litres_raw:
+                    errors[f"litres_{vid}"] = f"Litres required for vehicle {vid}."
+                    continue
+                try:
+                    litres = Decimal(litres_raw)
+                    if litres <= 0:
+                        errors[f"litres_{vid}"] = "Must be > 0."
+                        continue
+                except InvalidOperation:
+                    errors[f"litres_{vid}"] = "Invalid number."
+                    continue
+                vehicle_rows.append((vid, driver_id, litres))
+
+        if not errors:
+            issued = []
+            for vid, driver_id, litres in vehicle_rows:
+                total = litres * cost
+                coupon = FuelCoupon.objects.create(
+                    vehicle_id      = vid,
+                    driver_id       = driver_id or None,
+                    fuel_station_id = station_id,
+                    litres          = litres,
+                    cost_per_litre  = cost,
+                    total_value     = total,
+                    expiry_date     = expiry_date or None,
+                    purpose         = "Bulk issue",
+                    issued_by       = request.user,
+                )
+                # Auto-dismiss monthly fuel reminder
+                try:
+                    v = Vehicle.objects.get(pk=vid)
+                    if v.needs_monthly_fuel:
+                        from vehicles.models import MonthlyFuelDismissal
+                        from django.utils import timezone as tz
+                        now = tz.now()
+                        MonthlyFuelDismissal.objects.get_or_create(
+                            vehicle=v, month=now.month, year=now.year,
+                            defaults={"dismissed_by": request.user.full_name}
+                        )
+                except Vehicle.DoesNotExist:
+                    pass
+
+                AuditLog.objects.create(
+                    user=request.user, user_name=request.user.full_name,
+                    action=AuditLog.ACTION_ISSUE, module="coupons",
+                    record_id=str(coupon.pk),
+                    detail=f"Bulk issued coupon {coupon.coupon_id} for vehicle #{vid}"
+                )
+                issued.append(coupon)
+
+            messages.success(request, f"{len(issued)} coupon{'s' if len(issued) != 1 else ''} issued successfully.")
+            return redirect("coupons:list")
+
+        return render(request, "coupons/bulk_issue.html", {
+            "vehicles": vehicles,
+            "fuel_stations": fuel_stations,
+            "drivers": drivers,
+            "errors": errors,
+            "post": request.POST,
+        })
+
+    return render(request, "coupons/bulk_issue.html", {
+        "vehicles": vehicles,
+        "fuel_stations": fuel_stations,
+        "drivers": drivers,
+        "errors": {},
+        "post": {},
+    })
+
+
+@login_required
 def detail_view(request, pk):
     if not request.user.has_module_perm("coupons", "read"):
         return HttpResponseForbidden()

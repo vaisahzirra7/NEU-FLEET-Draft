@@ -82,7 +82,7 @@ class Vehicle(models.Model):
 class FleetLicenceExpiry(models.Model):
     """
     Singleton model — stores the single fleet-wide vehicle licence expiry date.
-    Most vehicles are renewed together, so one record covers the whole fleet.
+    All vehicles are renewed together, so one record covers the whole fleet.
     """
     expiry_date   = models.DateField(help_text="Date the fleet vehicle licences expire.")
     notes         = models.TextField(blank=True)
@@ -134,3 +134,20 @@ class MonthlyFuelDismissal(models.Model):
 
     def __str__(self):
         return f"{self.vehicle.plate_number} — {self.month}/{self.year}"
+
+
+class DriverVehicleAssignment(models.Model):
+    """Records every time a driver is assigned/unassigned from a vehicle."""
+    vehicle     = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="assignments")
+    driver      = models.ForeignKey("drivers.Driver", on_delete=models.SET_NULL, null=True, related_name="vehicle_assignments")
+    driver_name = models.CharField(max_length=150, help_text="Snapshot of driver name at time of assignment")
+    assigned_by = models.CharField(max_length=150)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    notes       = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "driver_vehicle_assignments"
+        ordering = ["-assigned_at"]
+
+    def __str__(self):
+        return f"{self.vehicle.plate_number} → {self.driver_name}"

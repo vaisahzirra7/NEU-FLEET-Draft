@@ -8,4 +8,11 @@ urlpatterns = [
     path("vehicles/",    views.vehicle_spending,   name="vehicle_spending"),
     path("monthly/",     views.monthly_expense,    name="monthly_expense"),
     path("maintenance/", views.maintenance_report, name="maintenance_report"),
+
+    # Report scheduling
+    path("schedules/",                    views.schedule_list,     name="schedule_list"),
+    path("schedules/create/",             views.schedule_create,   name="schedule_create"),
+    path("schedules/<int:pk>/edit/",      views.schedule_edit,     name="schedule_edit"),
+    path("schedules/<int:pk>/delete/",    views.schedule_delete,   name="schedule_delete"),
+    path("schedules/<int:pk>/send-now/",  views.schedule_send_now, name="schedule_send_now"),
 ]

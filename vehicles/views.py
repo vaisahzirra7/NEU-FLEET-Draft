@@ -170,6 +170,7 @@ def edit_view(request, pk):
     drivers     = Driver.objects.filter(status=Driver.STATUS_ACTIVE)
 
     if request.method == "POST":
+        old_driver_id = vehicle.default_driver_id
         vehicle.vehicle_type      = request.POST.get("vehicle_type", vehicle.vehicle_type)
         vehicle.make              = request.POST.get("make", vehicle.make).strip()
         vehicle.model             = request.POST.get("model", vehicle.model).strip()
@@ -179,11 +180,32 @@ def edit_view(request, pk):
         vehicle.chassis_no        = request.POST.get("chassis_no", "").strip()
         vehicle.fuel_type         = request.POST.get("fuel_type", vehicle.fuel_type)
         vehicle.department_id     = request.POST.get("department", vehicle.department_id)
-        vehicle.default_driver_id = request.POST.get("default_driver") or None
+        new_driver_id             = request.POST.get("default_driver") or None
+        vehicle.default_driver_id = new_driver_id
         vehicle.status             = request.POST.get("status", vehicle.status)
         vehicle.notes              = request.POST.get("notes", "").strip()
         vehicle.needs_monthly_fuel = request.POST.get("needs_monthly_fuel") == "on"
         vehicle.save()
+
+        # Record assignment history if driver changed
+        if str(old_driver_id or "") != str(new_driver_id or ""):
+            from .models import DriverVehicleAssignment
+            from drivers.models import Driver as DriverModel
+            driver_name = "— Unassigned —"
+            driver_obj  = None
+            if new_driver_id:
+                try:
+                    driver_obj  = DriverModel.objects.get(pk=new_driver_id)
+                    driver_name = driver_obj.full_name
+                except DriverModel.DoesNotExist:
+                    pass
+            DriverVehicleAssignment.objects.create(
+                vehicle     = vehicle,
+                driver      = driver_obj,
+                driver_name = driver_name,
+                assigned_by = request.user.full_name,
+                notes       = f"Driver changed via vehicle edit form",
+            )
 
         AuditLog.objects.create(
             user=request.user, user_name=request.user.full_name,

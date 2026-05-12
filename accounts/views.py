@@ -80,8 +80,6 @@ def password_reset_request(request):
             otp_display = " ".join(otp)
 
             html_body = f"""<!DOCTYPE html>
-
-            
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -140,7 +138,7 @@ def password_reset_request(request):
         <tr>
           <td style="background:#fdf8f0;border-left:3px solid #c8813a;padding:16px 36px;">
             <p style="margin:0;font-size:12px;color:#8a6020;line-height:1.6;">
-              <strong>Security reminder:</strong> We will never ask for your password or OTP.
+              <strong>Security reminder:</strong> VanaraFleetsOps staff will never ask for your password or OTP.
               Do not share this code with anyone.
             </p>
           </td>
@@ -589,3 +587,66 @@ def department_edit(request, pk):
         return redirect("accounts:departments")
 
     return render(request, "accounts/department_form.html", {"obj": dept})
+
+
+# ── Profile ──────────────────────────────────────────────────────────────────
+
+@login_required
+def profile_view(request):
+    user = request.user
+    error = None
+    pw_error = None
+    pw_success = False
+
+    if request.method == "POST":
+        action = request.POST.get("action", "profile")
+
+        if action == "profile":
+            full_name = request.POST.get("full_name", "").strip()
+            phone     = request.POST.get("phone", "").strip()
+            if not full_name:
+                error = "Full name cannot be empty."
+            else:
+                user.full_name = full_name
+                if hasattr(user, "phone"):
+                    user.phone = phone
+                user.save(update_fields=["full_name"] + (["phone"] if hasattr(user, "phone") else []))
+                from audit.models import AuditLog
+                AuditLog.objects.create(
+                    user=user, user_name=user.full_name,
+                    action=AuditLog.ACTION_EDIT, module="accounts",
+                    record_id=str(user.pk),
+                    detail="Updated own profile"
+                )
+                messages.success(request, "Profile updated successfully.")
+                return redirect("accounts:profile")
+
+        elif action == "change_password":
+            current  = request.POST.get("current_password", "")
+            new_pw   = request.POST.get("new_password", "").strip()
+            confirm  = request.POST.get("confirm_password", "").strip()
+
+            if not user.check_password(current):
+                pw_error = "Current password is incorrect."
+            elif not new_pw:
+                pw_error = "New password cannot be empty."
+            elif len(new_pw) < 8:
+                pw_error = "Password must be at least 8 characters."
+            elif new_pw != confirm:
+                pw_error = "Passwords do not match."
+            elif new_pw == DEFAULT_PASSWORD:
+                pw_error = "Please choose a different password — do not use the system default."
+            else:
+                user.set_password(new_pw)
+                user.must_change_password = False
+                user.save(update_fields=["password", "must_change_password"])
+                from django.contrib.auth import update_session_auth_hash
+                update_session_auth_hash(request, user)
+                messages.success(request, "Password changed successfully.")
+                return redirect("accounts:profile")
+
+    return render(request, "accounts/profile.html", {
+        "user": user,
+        "error": error,
+        "pw_error": pw_error,
+    })

@@ -1,5 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponse, HttpResponseForbidden
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
@@ -304,36 +305,42 @@ def dashboard(request):
     }
 
     alerts = []
-    cutoff = today + timedelta(days=14)
-    service_due_qs = MaintenanceRecord.objects.filter(
-        next_service_date__lte=cutoff, next_service_date__gte=today, **fdept
-    ).select_related("vehicle").order_by("next_service_date")
+    user = request.user
 
-    seen = set()
+    # ── Service due alerts (only if user can see maintenance) ──
     service_due = []
-    for rec in service_due_qs:
-        if rec.vehicle_id not in seen:
-            seen.add(rec.vehicle_id)
-            service_due.append(rec)
-            alerts.append({
-                "type": "warning",
-                "title": f"Service due: {rec.vehicle.plate_number}",
-                "detail": f"{rec.vehicle.make} {rec.vehicle.model} — due {rec.next_service_date}",
-                "url": f"/vehicles/{rec.vehicle.pk}/",
-            })
+    if user.has_module_perm("maintenance", "read"):
+        cutoff = today + timedelta(days=14)
+        service_due_qs = MaintenanceRecord.objects.filter(
+            next_service_date__lte=cutoff, next_service_date__gte=today, **fdept
+        ).select_related("vehicle").order_by("next_service_date")
+        seen = set()
+        for rec in service_due_qs:
+            if rec.vehicle_id not in seen:
+                seen.add(rec.vehicle_id)
+                service_due.append(rec)
+                alerts.append({
+                    "type": "warning",
+                    "title": f"Service due: {rec.vehicle.plate_number}",
+                    "detail": f"{rec.vehicle.make} {rec.vehicle.model} — due {rec.next_service_date}",
+                    "url": f"/vehicles/{rec.vehicle.pk}/",
+                })
 
-    license_cutoff = today + timedelta(days=30)
-    license_alerts = Driver.objects.filter(
-        status=Driver.STATUS_ACTIVE,
-        license_expiry__lte=license_cutoff,
-    ).order_by("license_expiry")
-    for d in license_alerts:
-        alerts.append({
-            "type": "danger",
-            "title": f"License expiring: {d.full_name}",
-            "detail": f"Expires {d.license_expiry} ({d.days_until_license_expiry} days left)",
-            "url": f"/drivers/{d.pk}/",
-        })
+    # ── Driver licence alerts (only if user can see drivers) ──
+    license_alerts = []
+    if user.has_module_perm("drivers", "read"):
+        license_cutoff = today + timedelta(days=30)
+        license_alerts = Driver.objects.filter(
+            status=Driver.STATUS_ACTIVE,
+            license_expiry__lte=license_cutoff,
+        ).order_by("license_expiry")
+        for d in license_alerts:
+            alerts.append({
+                "type": "danger",
+                "title": f"License expiring: {d.full_name}",
+                "detail": f"Expires {d.license_expiry} ({d.days_until_license_expiry} days left)",
+                "url": f"/drivers/{d.pk}/",
+            })
 
     fuel_map  = {r["vehicle_id"]: r["fuel"]  for r in FuelLog.objects.filter(fuel_date__gte=month_start, **fdept).values("vehicle_id").annotate(fuel=Sum("actual_cost"))}
     maint_map = {r["vehicle_id"]: r["maint"] for r in MaintenanceRecord.objects.filter(service_date__gte=month_start, **fdept).values("vehicle_id").annotate(maint=Sum("total_cost"))}
@@ -349,10 +356,10 @@ def dashboard(request):
 
     recent_activity = AuditLog.objects.select_related("user")[:10]
 
-    # ── Fleet licence alert ──
+    # ── Fleet licence alert (only if user can see vehicles) ──
     from vehicles.models import FleetLicenceExpiry, MonthlyFuelDismissal
     fleet_licence = FleetLicenceExpiry.get()
-    if fleet_licence and (fleet_licence.is_expired or fleet_licence.is_expiring_soon):
+    if fleet_licence and user.has_module_perm("vehicles", "read") and (fleet_licence.is_expired or fleet_licence.is_expiring_soon):
         alerts.append({
             "type":   "danger" if fleet_licence.is_expired else "warning",
             "title":  "Fleet vehicle licences expired" if fleet_licence.is_expired else "Fleet vehicle licences expiring soon",
@@ -367,7 +374,7 @@ def dashboard(request):
             month=today.month, year=today.year
         ).values_list("vehicle_id", flat=True)
         monthly_fuel_vehicles = Vehicle.objects.filter(
-            needs_monthly_fuel=True, status=Vehicle.STATUS_ACTIVE, **fdept
+            needs_monthly_fuel=True, status=Vehicle.STATUS_ACTIVE, **vdept
         ).exclude(id__in=dismissed_ids).select_related("department")
 
     return render(request, "dashboard/dashboard.html", {
@@ -875,3 +882,332 @@ def _vendor_excel(ctx):
     for col, w in zip(["A","B","C","D","E","F","G","H"], [28, 16, 18, 12, 12, 18, 12, 18]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"vendor_report_{df}_{dt}.xlsx")
+
+
+# ── Report Scheduling ────────────────────────────────────────────────────────
+
+@login_required
+def schedule_list(request):
+    if not request.user.has_module_perm("reports", "read"):
+        return HttpResponseForbidden()
+    from .models import ReportSchedule
+    schedules = ReportSchedule.objects.all()
+    return render(request, "reports/schedule_list.html", {
+        "schedules": schedules,
+        "can_write":  request.user.has_module_perm("reports", "write"),
+        "can_edit":   request.user.has_module_perm("reports", "edit"),
+        "can_delete": request.user.has_module_perm("reports", "delete"),
+    })
+
+
+@login_required
+def schedule_create(request):
+    if not request.user.has_module_perm("reports", "write"):
+        return HttpResponseForbidden()
+    from .models import ReportSchedule
+    if request.method == "POST":
+        name        = request.POST.get("name", "").strip()
+        report_type = request.POST.get("report_type", "")
+        fmt         = request.POST.get("format", "pdf")
+        recipients  = request.POST.get("recipients", "").strip()
+        send_day    = request.POST.get("send_day", "1").strip()
+        is_active   = request.POST.get("is_active") == "on"
+
+        errors = {}
+        if not name:        errors["name"]       = "Name is required."
+        if not report_type: errors["report_type"]= "Report type is required."
+        if not recipients:  errors["recipients"] = "At least one recipient email is required."
+        try:
+            send_day = int(send_day)
+            if not (1 <= send_day <= 28):
+                errors["send_day"] = "Day must be between 1 and 28."
+        except ValueError:
+            errors["send_day"] = "Enter a valid day number."
+
+        if not errors:
+            ReportSchedule.objects.create(
+                name=name, report_type=report_type, format=fmt,
+                recipients=recipients, send_day=send_day,
+                is_active=is_active, created_by=request.user.full_name,
+            )
+            messages.success(request, f"Schedule '{name}' created.")
+            return redirect("reports:schedule_list")
+
+        return render(request, "reports/schedule_form.html", {
+            "errors": errors, "post": request.POST,
+            "report_choices": ReportSchedule.REPORT_CHOICES,
+            "format_choices": ReportSchedule.FORMAT_CHOICES,
+        })
+
+    from .models import ReportSchedule
+    return render(request, "reports/schedule_form.html", {
+        "errors": {}, "post": {},
+        "report_choices": ReportSchedule.REPORT_CHOICES,
+        "format_choices": ReportSchedule.FORMAT_CHOICES,
+    })
+
+
+@login_required
+def schedule_edit(request, pk):
+    if not request.user.has_module_perm("reports", "edit"):
+        return HttpResponseForbidden()
+    from .models import ReportSchedule
+    schedule = get_object_or_404(ReportSchedule, pk=pk)
+
+    if request.method == "POST":
+        schedule.name        = request.POST.get("name", schedule.name).strip()
+        schedule.report_type = request.POST.get("report_type", schedule.report_type)
+        schedule.format      = request.POST.get("format", schedule.format)
+        schedule.recipients  = request.POST.get("recipients", "").strip()
+        schedule.send_day    = int(request.POST.get("send_day", schedule.send_day))
+        schedule.is_active   = request.POST.get("is_active") == "on"
+        schedule.save()
+        messages.success(request, f"Schedule '{schedule.name}' updated.")
+        return redirect("reports:schedule_list")
+
+    return render(request, "reports/schedule_form.html", {
+        "obj": schedule, "errors": {}, "post": {},
+        "report_choices": ReportSchedule.REPORT_CHOICES,
+        "format_choices": ReportSchedule.FORMAT_CHOICES,
+    })
+
+
+@login_required
+def schedule_delete(request, pk):
+    if not request.user.has_module_perm("reports", "delete"):
+        return HttpResponseForbidden()
+    from .models import ReportSchedule
+    schedule = get_object_or_404(ReportSchedule, pk=pk)
+    if request.method == "POST":
+        name = schedule.name
+        schedule.delete()
+        messages.success(request, f"Schedule '{name}' deleted.")
+    return redirect("reports:schedule_list")
+
+
+@login_required
+def schedule_send_now(request, pk):
+    """Send a scheduled report immediately for a custom date range."""
+    if not request.user.has_module_perm("reports", "write"):
+        return HttpResponseForbidden()
+    from .models import ReportSchedule
+    schedule = get_object_or_404(ReportSchedule, pk=pk)
+
+    if request.method == "POST":
+        date_from_str = request.POST.get("date_from", "").strip()
+        date_to_str   = request.POST.get("date_to", "").strip()
+
+        if not date_from_str or not date_to_str:
+            messages.error(request, "Both date from and date to are required.")
+            return redirect("reports:schedule_list")
+
+        try:
+            from datetime import datetime
+            df = datetime.strptime(date_from_str, "%Y-%m-%d").date()
+            dt = datetime.strptime(date_to_str,   "%Y-%m-%d").date()
+            if df > dt:
+                messages.error(request, "Date from must be before date to.")
+                return redirect("reports:schedule_list")
+        except ValueError:
+            messages.error(request, "Invalid date format.")
+            return redirect("reports:schedule_list")
+
+        # Build and send using the management command helpers
+        try:
+            data, filename, mime_type = _build_report_instant(schedule, df, dt)
+            _send_email_instant(schedule, data, filename, mime_type, df, dt, request.user.full_name)
+
+            schedule.last_sent = timezone.now()
+            schedule.save(update_fields=["last_sent"])
+
+            messages.success(
+                request,
+                f"Report '{schedule.name}' sent to {', '.join(schedule.recipient_list)} "
+                f"for period {df.strftime('%d %b %Y')} — {dt.strftime('%d %b %Y')}."
+            )
+        except Exception as e:
+            messages.error(request, f"Failed to send report: {e}")
+
+        return redirect("reports:schedule_list")
+
+    return redirect("reports:schedule_list")
+
+
+def _build_report_instant(schedule, df, dt):
+    """Build report attachment for instant send with a custom date range."""
+    from decimal import Decimal
+    from vehicles.models import Vehicle
+    from coupons.models import FuelCoupon
+    from maintenance.models import MaintenanceRecord
+    from fuel_logs.models import FuelLog
+    from vendors.models import Vendor
+    from accounts.models import Department
+    from django.db.models import Sum
+
+    rt  = schedule.report_type
+    fmt = schedule.format
+
+    def vehicle_rows():
+        rows = []
+        for v in Vehicle.objects.filter(status="active").select_related("department"):
+            fc = FuelCoupon.objects.filter(vehicle=v, status="redeemed", issue_datetime__date__range=[df,dt])
+            mc = MaintenanceRecord.objects.filter(vehicle=v, service_date__range=[df,dt])
+            fuel_cost   = fc.aggregate(t=Sum("total_value"))["t"] or Decimal(0)
+            maint_cost  = mc.aggregate(t=Sum("total_cost"))["t"]  or Decimal(0)
+            fuel_litres = fc.aggregate(t=Sum("litres"))["t"]       or Decimal(0)
+            if fuel_cost or maint_cost:
+                rows.append({"vehicle": v, "fuel_cost": fuel_cost, "maint_cost": maint_cost,
+                             "total": fuel_cost+maint_cost, "fuel_litres": fuel_litres,
+                             "maint_count": mc.count()})
+        return rows
+
+    if fmt == "xlsx":
+        if rt == "vehicle_spending":
+            rows = vehicle_rows()
+            gf = sum(r["fuel_cost"] for r in rows)
+            gm = sum(r["maint_cost"] for r in rows)
+            gt = sum(r["total"] for r in rows)
+            resp = _vehicle_spending_excel(rows, df, dt, gf, gm, gt)
+        elif rt == "fleet_summary":
+            coupons_qs = FuelCoupon.objects.filter(status="redeemed", issue_datetime__date__range=[df,dt])
+            maint_qs   = MaintenanceRecord.objects.filter(service_date__range=[df,dt])
+            tf = coupons_qs.aggregate(t=Sum("total_value"))["t"] or Decimal(0)
+            tl = coupons_qs.aggregate(t=Sum("litres"))["t"]       or Decimal(0)
+            tm = maint_qs.aggregate(t=Sum("total_cost"))["t"]      or Decimal(0)
+            dept_rows = []
+            for dept in Department.objects.filter(is_active=True):
+                f = FuelCoupon.objects.filter(vehicle__department=dept, status="redeemed", issue_datetime__date__range=[df,dt]).aggregate(t=Sum("total_value"))["t"] or Decimal(0)
+                m = MaintenanceRecord.objects.filter(vehicle__department=dept, service_date__range=[df,dt]).aggregate(t=Sum("total_cost"))["t"] or Decimal(0)
+                dept_rows.append({"dept": dept, "fuel": f, "maint": m, "total": f+m})
+            ctx = {"date_from": df, "date_to": dt, "total_fuel_cost": tf, "total_fuel_litres": tl,
+                   "total_maint_cost": tm, "total_spend": tf+tm,
+                   "total_coupons": FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).count(),
+                   "total_maint_recs": maint_qs.count(), "dept_rows": dept_rows}
+            resp = _fleet_summary_excel(ctx)
+        elif rt == "monthly_expense":
+            logs  = FuelLog.objects.filter(fuel_date__range=[df,dt]).select_related("vehicle","driver","coupon")
+            recs  = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
+            tf    = logs.aggregate(t=Sum("actual_cost"))["t"] or Decimal(0)
+            tm    = recs.aggregate(t=Sum("total_cost"))["t"]  or Decimal(0)
+            ctx   = {"date_from": df, "date_to": dt, "fuel_logs": logs, "maint_records": recs,
+                     "total_fuel": tf, "total_maint": tm, "total_spend": tf + tm}
+            resp  = _monthly_expense_excel(ctx)
+        elif rt == "coupon_report":
+            coupons = FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).select_related("vehicle","driver","fuel_station")
+            ctx = {"date_from": df, "date_to": dt, "coupons": coupons,
+                   "total_value": coupons.aggregate(t=Sum("total_value"))["t"] or Decimal(0)}
+            resp = _coupon_report_excel(ctx)
+        elif rt == "maintenance":
+            recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
+            ctx  = {"date_from": df, "date_to": dt, "records": recs,
+                    "total_cost": recs.aggregate(t=Sum("total_cost"))["t"] or Decimal(0)}
+            resp = _maintenance_excel(ctx)
+        elif rt == "vendor":
+            rows2 = []; grand = Decimal(0)
+            for v in Vendor.objects.filter(is_active=True):
+                fc = FuelCoupon.objects.filter(fuel_station=v, issue_datetime__date__range=[df,dt])
+                mc = MaintenanceRecord.objects.filter(vendor=v, service_date__range=[df,dt])
+                fc_cost = fc.aggregate(t=Sum("total_value"))["t"] or Decimal(0)
+                mc_cost = mc.aggregate(t=Sum("total_cost"))["t"]  or Decimal(0)
+                total   = fc_cost + mc_cost
+                if total:
+                    rows2.append({"vendor": v, "fuel_cost": fc_cost,
+                                  "fuel_litres": fc.aggregate(t=Sum("litres"))["t"] or Decimal(0),
+                                  "fuel_txn": fc.count(), "maint_cost": mc_cost,
+                                  "maint_txn": mc.count(), "total": total})
+                    grand += total
+            ctx  = {"date_from": df, "date_to": dt, "rows": rows2, "grand_total": grand}
+            resp = _vendor_excel(ctx)
+        else:
+            raise ValueError(f"Unknown report type: {rt}")
+
+        data     = resp.content
+        filename = f"{rt}_{df}_{dt}.xlsx"
+        mime     = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    else:
+        # PDF schedule — render as self-contained HTML with all CSS inlined
+        # Opens in any browser and looks identical to the printable report
+        from django.template.loader import render_to_string
+
+        template_map = {
+            "vehicle_spending": "reports/pdf/vehicle_spending.html",
+            "fleet_summary":    "reports/pdf/fleet_summary.html",
+            "monthly_expense":  "reports/pdf/monthly_expense.html",
+            "coupon_report":    "reports/pdf/coupon_report.html",
+            "maintenance":      "reports/pdf/maintenance_report.html",
+            "vendor":           "reports/pdf/vendor_report.html",
+        }
+        template = template_map.get(rt)
+        if not template:
+            raise ValueError(f"PDF export not supported for report type: {rt}")
+
+        # Build context
+        ctx = {"date_from": df, "date_to": dt}
+        if rt == "vehicle_spending":
+            rows = vehicle_rows()
+            ctx.update({"rows": rows,
+                        "grand_fuel":  sum(r["fuel_cost"]  for r in rows),
+                        "grand_maint": sum(r["maint_cost"] for r in rows),
+                        "grand_total": sum(r["total"]       for r in rows)})
+        elif rt == "monthly_expense":
+            logs = FuelLog.objects.filter(fuel_date__range=[df,dt]).select_related("vehicle","driver","coupon")
+            recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
+            tf = logs.aggregate(t=Sum("actual_cost"))["t"] or Decimal(0)
+            tm = recs.aggregate(t=Sum("total_cost"))["t"]  or Decimal(0)
+            ctx.update({"fuel_logs": logs, "maint_records": recs,
+                        "total_fuel": tf, "total_maint": tm, "total_spend": tf + tm})
+        elif rt == "coupon_report":
+            coupons = FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).select_related("vehicle","driver","fuel_station")
+            ctx.update({"coupons": coupons,
+                        "total_value": coupons.aggregate(t=Sum("total_value"))["t"] or Decimal(0)})
+        elif rt == "maintenance":
+            recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
+            ctx.update({"records": recs,
+                        "total_cost": recs.aggregate(t=Sum("total_cost"))["t"] or Decimal(0)})
+
+        html_string = render_to_string(template, ctx)
+
+        # Load main.css and inline it so the file is self-contained
+        css_path = os.path.join(str(settings.BASE_DIR), "static", "css", "main.css")
+        if not os.path.exists(css_path):
+            css_path = os.path.join(str(settings.BASE_DIR), "staticfiles", "css", "main.css")
+
+        if os.path.exists(css_path):
+            with open(css_path, "r", encoding="utf-8") as f:
+                css_content = f.read()
+            # Replace the <link> tag referencing main.css / reports.css with inline <style>
+            import re
+            html_string = re.sub(
+                r'<link[^>]+\.css[^>]*>',
+                f'<style>{css_content}</style>',
+                html_string
+            )
+
+        data     = html_string.encode("utf-8")
+        filename = f"{rt}_{df}_{dt}.html"
+        mime     = "text/html"
+
+    return data, filename, mime
+
+
+def _send_email_instant(schedule, data, filename, mime_type, df, dt, sent_by):
+    """Send the built report via email with a custom period label."""
+    from django.core.mail import EmailMultiAlternatives
+    period_label = f"{df.strftime('%d %b %Y')} — {dt.strftime('%d %b %Y')}"
+    subject = f"VanaraFleetsOps — {schedule.get_report_type_display()} ({period_label})"
+    body = (
+        f"Hello,\n\n"
+        f"Please find attached the {schedule.get_report_type_display()} report "
+        f"for the period {period_label}.\n\n"
+        f"This report was sent manually by {sent_by}.\n\n"
+        f"— Fleet Management System\n"
+        f"North-Eastern University, Gombe"
+    )
+    msg = EmailMultiAlternatives(
+        subject=subject, body=body,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+        to=schedule.recipient_list,
+    )
+    msg.attach(filename, data, mime_type)
+    msg.send()

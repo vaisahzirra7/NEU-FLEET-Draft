@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Report Schedules{% endblock %}
+{% block page_title %}Report Schedules{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a>
+  <span class="sep">›</span> Schedules
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Report Schedules</h1>
+    <p>Reports are automatically sent to recipients on a set day each month</p>
+  </div>
+  {% if can_write %}
+  <a href="{% url 'reports:schedule_create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Schedule
+  </a>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom:1rem;background:var(--surface-2);border:none;">
+  <div class="card-body" style="padding:.85rem 1.25rem;display:flex;gap:.6rem;align-items:flex-start;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+      Scheduled reports run automatically each month on the configured day. To trigger sending,
+      run <code style="background:var(--surface);padding:1px 6px;border-radius:4px;font-size:.78rem;">python manage.py send_scheduled_reports</code>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Report Type</th>
+          <th>Format</th>
+          <th>Send Day</th>
+          <th>Recipients</th>
+          <th>Status</th>
+          <th>Last Sent</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in schedules %}
+        <tr>
+          <td class="fw-600">{{ s.name }}</td>
+          <td style="font-size:.83rem;">{{ s.get_report_type_display }}</td>
+          <td>
+            <span class="badge {% if s.format == 'pdf' %}badge-navy{% else %}badge-success{% endif %}">
+              {{ s.format|upper }}
+            </span>
+          </td>
+          <td style="font-size:.83rem;">
+            Day {{ s.send_day }}
+            <span style="color:var(--text-muted);font-size:.75rem;">of each month</span>
+          </td>
+          <td style="font-size:.78rem;color:var(--text-muted);max-width:200px;">
+            {% for email in s.recipient_list %}
+            <div>{{ email }}</div>
+            {% endfor %}
+          </td>
+          <td>
+            {% if s.is_active %}
+            <span class="badge badge-success">Active</span>
+            {% else %}
+            <span class="badge badge-muted">Paused</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.78rem;color:var(--text-muted);">
+            {{ s.last_sent|date:"j M Y H:i"|default:"Never" }}
+          </td>
+          <td>
+            {% if can_edit %}
+            <a href="{% url 'reports:schedule_edit' s.pk %}" class="btn btn-outline btn-sm">Edit</a>
+            {% endif %}
+            {% if can_write %}
+            <button type="button" class="btn btn-primary btn-sm"
+              onclick="openSendNow({{ s.pk }})">
+              Send Now
+            </button>
+            {% endif %}
+            {% if can_delete %}
+            <form method="post" action="{% url 'reports:schedule_delete' s.pk %}"
+              onsubmit="return confirm('Delete schedule \'{{ s.name }}\'?')" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">
+          <div class="empty-state">
+            <span class="empty-icon">📅</span>
+            <div class="empty-title">No schedules yet</div>
+            <div class="empty-sub">Create a schedule to automatically email reports each month.</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Send Now Modal -->
+<div id="sendNowModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:12px;padding:2rem;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+      <div>
+        <div style="font-size:1.05rem;font-weight:700;color:var(--text);">Send Report Now</div>
+        <div id="sendNowSubtitle" style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem;"></div>
+      </div>
+      <button onclick="document.getElementById('sendNowModal').style.display='none'"
+        style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;">✕</button>
+    </div>
+
+    <div style="background:var(--surface-2);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1.25rem;font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+      Choose a date range. The report will be generated and emailed to all configured recipients immediately.
+      Excel schedules send as <strong>.xlsx</strong>. PDF schedules send as a proper <strong>.pdf</strong> attachment.
+    </div>
+
+    <form id="sendNowForm" method="post" novalidate>
+      {% csrf_token %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Date From <span class="req">*</span></label>
+          <input type="date" name="date_from" id="sendFromDate" class="form-control" required>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Date To <span class="req">*</span></label>
+          <input type="date" name="date_to" id="sendToDate" class="form-control" required>
+        </div>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:1.25rem;">
+        <strong>Recipients:</strong> <span id="sendNowRecipients"></span>
+      </div>
+      <div class="d-flex gap-1">
+        <button type="submit" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-right:.3rem;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send Now
+        </button>
+        <button type="button" class="btn btn-outline"
+          onclick="document.getElementById('sendNowModal').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const scheduleData = {
+  {% for s in schedules %}
+  {{ s.pk }}: { name: "{{ s.name|escapejs }}", type: "{{ s.get_report_type_display|escapejs }}", recipients: "{{ s.recipients|escapejs }}" },
+  {% endfor %}
+};
+
+function openSendNow(pk) {
+  const s = scheduleData[pk];
+  document.getElementById('sendNowSubtitle').textContent = s.name + ' — ' + s.type;
+  document.getElementById('sendNowRecipients').textContent = s.recipients;
+  document.getElementById('sendNowForm').action = '/reports/schedules/' + pk + '/send-now/';
+
+  // Default: first of this month to today
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById('sendFromDate').value = firstOfMonth.toISOString().split('T')[0];
+  document.getElementById('sendToDate').value   = today.toISOString().split('T')[0];
+
+  document.getElementById('sendNowModal').style.display = 'flex';
+}
+</script>
+
+{% endblock %}

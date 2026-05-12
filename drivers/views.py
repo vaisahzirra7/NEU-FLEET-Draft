@@ -43,11 +43,13 @@ def detail_view(request, pk):
     driver   = get_object_or_404(Driver, pk=pk)
     coupons  = driver.coupons.select_related("vehicle").order_by("-issue_datetime")[:15]
     renewals = driver.licence_renewals.all()
+    assignments = driver.vehicle_assignments.select_related("vehicle").all()[:20]
 
     return render(request, "drivers/detail.html", {
-        "driver":   driver,
-        "coupons":  coupons,
-        "renewals": renewals,
+        "driver":      driver,
+        "coupons":     coupons,
+        "renewals":    renewals,
+        "assignments": assignments,
         "can_edit": request.user.has_module_perm("drivers", "edit"),
     })
 

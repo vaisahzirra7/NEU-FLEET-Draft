@@ -44,7 +44,7 @@
           <label class="form-label">Full Name <span class="req">*</span></label>
           <input type="text" name="full_name" class="form-control {% if errors.full_name %}field-error{% endif %}"
             value="{% if obj %}{{ obj.full_name }}{% elif post.full_name %}{{ post.full_name }}{% endif %}"
-            placeholder="e.g. Vaisah Peter Zirra">
+            placeholder="e.g. Vaisah Peter Zirrap">
           {% if errors.full_name %}<div class="error-msg">{{ errors.full_name }}</div>{% endif %}
         </div>
 
