@@ -3,33 +3,81 @@
 {% block page_title %}Maintenance Record{% endblock %}
 {% block breadcrumb %}
   <span class="sep">></span> <a href="{% url 'maintenance:list' %}">Maintenance</a>
-  <span class="sep">></span> {{ rec.vehicle.plate_number }}
+  <span class="sep">></span> {{ rec.asset_label }}
 {% endblock %}
 {% block content %}
-<div style="max-width:640px;">
+<div style="max-width:780px;">
   <div class="page-header">
     <div class="page-header-left">
-      <h1>{{ rec.get_service_type_display }}</h1>
-      <p>{{ rec.vehicle.plate_number }} - {{ rec.service_date|date:"j M Y" }}</p>
+      <h1>Maintenance — {{ rec.asset_label }}</h1>
+      <p>{{ rec.service_date|date:"j F Y" }} · {{ rec.items.count }} item{{ rec.items.count|pluralize }}</p>
     </div>
-    <a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="btn btn-outline">Back to Vehicle</a>
+    {% if rec.is_for_vehicle %}
+      <a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="btn btn-outline">Back to Vehicle</a>
+    {% else %}
+      <a href="{% url 'generators:detail' rec.generator.pk %}" class="btn btn-outline">Back to Generator</a>
+    {% endif %}
   </div>
+
+  {# ─── Line items table ─── #}
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+      <div class="card-title">Work Done</div>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Service Type</th>
+            <th>Description</th>
+            <th style="text-align:right;">Cost (₦)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in rec.items.all %}
+          <tr>
+            <td><span class="badge badge-navy">{{ it.get_service_type_display }}</span></td>
+            <td>{{ it.description }}</td>
+            <td style="text-align:right;" class="fw-600">{{ it.cost|floatformat:2 }}</td>
+          </tr>
+          {% empty %}
+          {# Legacy record with no items — show record-level summary as a single row #}
+          <tr>
+            <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
+            <td>{{ rec.description }}</td>
+            <td style="text-align:right;" class="fw-600">{{ rec.total_cost|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--surface-2);">
+            <td colspan="2" style="text-align:right; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:.78rem; letter-spacing:.03em;">Total</td>
+            <td style="text-align:right; font-weight:700; color:var(--navy); font-size:1.05rem;">₦ {{ rec.total_cost|floatformat:2 }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  {# ─── Metadata ─── #}
   <div class="card">
     <div class="card-header">
       <div class="card-title">Record Details</div>
-      <span class="badge badge-navy">{{ rec.get_service_type_display }}</span>
     </div>
     <div class="card-body" style="padding:0;">
       <table class="data-table">
         <tbody>
+          {% if rec.is_for_vehicle %}
           <tr><td style="color:var(--text-muted);width:38%;">Vehicle</td><td class="fw-600">{{ rec.vehicle.plate_number }} - {{ rec.vehicle.make }} {{ rec.vehicle.model }}</td></tr>
+          {% else %}
+          <tr><td style="color:var(--text-muted);width:38%;">Generator</td><td class="fw-600">{{ rec.generator.tag }} - {{ rec.generator.name }}</td></tr>
+          <tr><td style="color:var(--text-muted);">Building</td><td>{{ rec.generator.building }}{% if rec.generator.location_note %} <span style="color:var(--text-muted);font-size:.85rem;">({{ rec.generator.location_note }})</span>{% endif %}</td></tr>
+          {% endif %}
           <tr><td style="color:var(--text-muted);">Date of Service</td><td>{{ rec.service_date|date:"j F Y" }}</td></tr>
-          <tr><td style="color:var(--text-muted);">Service Type</td><td>{{ rec.get_service_type_display }}</td></tr>
-          <tr><td style="color:var(--text-muted);">Description</td><td>{{ rec.description }}</td></tr>
           <tr><td style="color:var(--text-muted);">Vendor / Mechanic</td><td>{{ rec.effective_vendor_name }}</td></tr>
-          <tr><td style="color:var(--text-muted);">Total Cost</td><td class="fw-600" style="color:var(--navy);">N{{ rec.total_cost|floatformat:2 }}</td></tr>
           <tr><td style="color:var(--text-muted);">Next Service</td><td>{% if rec.next_service_date %}{% if rec.is_service_due_soon %}<span class="badge badge-warning">{{ rec.next_service_date }} - due soon</span>{% else %}{{ rec.next_service_date }}{% endif %}{% else %}--{% endif %}</td></tr>
           <tr><td style="color:var(--text-muted);">Approved By</td><td>{{ rec.approved_by }}</td></tr>
+          {% if rec.description %}<tr><td style="color:var(--text-muted);">Overall Summary</td><td>{{ rec.description }}</td></tr>{% endif %}
           {% if rec.notes %}<tr><td style="color:var(--text-muted);">Notes</td><td>{{ rec.notes }}</td></tr>{% endif %}
           <tr><td style="color:var(--text-muted);">Logged By</td><td>{{ rec.created_by.full_name }}</td></tr>
           <tr><td style="color:var(--text-muted);">Date Logged</td><td style="color:var(--text-muted);font-size:.8rem;">{{ rec.created_at|date:"j M Y" }}</td></tr>
@@ -37,6 +85,7 @@
       </table>
     </div>
   </div>
+
   <div style="margin-top:1rem;padding:.75rem 1rem;border-radius:var(--radius);border-left:3px solid var(--info);background:var(--info-bg);font-size:.8rem;color:var(--info);">
     <strong>Note:</strong> Maintenance records are permanent and cannot be edited. Log a new record with corrected information if needed.
   </div>

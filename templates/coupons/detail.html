@@ -10,14 +10,21 @@
 <div class="page-header">
   <div class="page-header-left">
     <h1>{{ coupon.coupon_id }}</h1>
-    <p>{{ coupon.vehicle.plate_number }} &nbsp;·&nbsp; {{ coupon.driver.full_name }} &nbsp;·&nbsp; {{ coupon.issue_datetime|date:"j M Y H:i" }}</p>
+    <p>{% if coupon.is_for_vehicle %}{{ coupon.vehicle.plate_number }}{% if coupon.driver_id %} &nbsp;·&nbsp; {{ coupon.driver.full_name }}{% endif %}{% else %}{{ coupon.generator.tag }} &nbsp;·&nbsp; {{ coupon.generator.building }}{% endif %} &nbsp;·&nbsp; {{ coupon.issue_datetime|date:"j M Y H:i" }}</p>
   </div>
   <div class="d-flex gap-1">
+    {% if coupon.is_pending and can_approve %}
+    <a href="{% url 'coupons:approve' coupon.pk %}" class="btn btn-primary">
+      Review (Approve / Reject)
+    </a>
+    {% endif %}
+    {% if coupon.is_printable %}
     <a href="{% url 'coupons:print_slip' coupon.pk %}" target="_blank" class="btn btn-outline">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
       Print Slip
     </a>
-    {% if coupon.status == "issued" and can_redeem %}
+    {% endif %}
+    {% if coupon.is_open and can_redeem %}
     <a href="{% url 'fuel_logs:create' %}?coupon={{ coupon.coupon_id }}" class="btn btn-primary">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
       Redeem / Log Fuel
@@ -33,17 +40,29 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">Coupon Details</div>
-        <span class="badge {% if coupon.status == 'redeemed' %}badge-success{% elif coupon.status == 'issued' %}badge-amber{% elif coupon.status == 'cancelled' %}badge-danger{% else %}badge-muted{% endif %}" style="font-size:.8rem;padding:.3rem .8rem;">
+        <span class="badge
+          {% if coupon.status == 'redeemed' %}badge-success
+          {% elif coupon.status == 'approved' or coupon.status == 'issued' %}badge-amber
+          {% elif coupon.status == 'cancelled' or coupon.status == 'rejected' %}badge-danger
+          {% else %}badge-muted{% endif %}" style="font-size:.8rem;padding:.3rem .8rem;">
           {{ coupon.get_status_display }}
         </span>
+        {% if coupon.is_self_approved %}
+        <span class="badge badge-amber" title="Same user issued and approved" style="font-size:.75rem;padding:.25rem .6rem;margin-left:.4rem;">Self-Approved</span>
+        {% endif %}
       </div>
       <div class="card-body" style="padding:0;">
         <table class="data-table">
           <tbody>
             <tr><td style="color:var(--text-muted);width:40%;">Coupon ID</td><td><span class="coupon-id">{{ coupon.coupon_id }}</span></td></tr>
             <tr><td style="color:var(--text-muted);">Verification Code</td><td><span class="coupon-id">{{ coupon.verification_code }}</span></td></tr>
+            {% if coupon.is_for_vehicle %}
             <tr><td style="color:var(--text-muted);">Vehicle</td><td><a href="{% url 'vehicles:detail' coupon.vehicle.pk %}">{{ coupon.vehicle.plate_number }} — {{ coupon.vehicle.make }} {{ coupon.vehicle.model }}</a></td></tr>
-            <tr><td style="color:var(--text-muted);">Driver</td><td>{{ coupon.driver.full_name }} ({{ coupon.driver.staff_id }})</td></tr>
+            <tr><td style="color:var(--text-muted);">Driver</td><td>{% if coupon.driver_id %}{{ coupon.driver.full_name }} ({{ coupon.driver.staff_id }}){% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td></tr>
+            {% elif coupon.is_for_generator %}
+            <tr><td style="color:var(--text-muted);">Generator</td><td><a href="{% url 'generators:detail' coupon.generator.pk %}">{{ coupon.generator.tag }} — {{ coupon.generator.name }}</a></td></tr>
+            <tr><td style="color:var(--text-muted);">Building</td><td>{{ coupon.generator.building }}{% if coupon.generator.location_note %} <span style="color:var(--text-muted);font-size:.85rem;">({{ coupon.generator.location_note }})</span>{% endif %}</td></tr>
+            {% endif %}
             <tr><td style="color:var(--text-muted);">Fuel Station</td><td>{{ coupon.fuel_station.name }}</td></tr>
             <tr><td style="color:var(--text-muted);">Litres Authorised</td><td class="fw-600">{{ coupon.litres }} L</td></tr>
             <tr><td style="color:var(--text-muted);">Cost per Litre</td><td>₦ {{ coupon.cost_per_litre|floatformat:2 }}</td></tr>
@@ -58,6 +77,19 @@
             {% endif %}
             {% if coupon.purpose %}
             <tr><td style="color:var(--text-muted);">Purpose</td><td>{{ coupon.purpose }}</td></tr>
+            {% endif %}
+            {% if coupon.approved_by %}
+            <tr><td style="color:var(--text-muted);">{% if coupon.status == 'rejected' %}Rejected By{% else %}Approved By{% endif %}</td><td>{{ coupon.approved_by.full_name }}{% if coupon.is_self_approved %} <span class="badge badge-amber" style="margin-left:.4rem;font-size:.7rem;">Self-approved</span>{% endif %}</td></tr>
+            <tr><td style="color:var(--text-muted);">{% if coupon.status == 'rejected' %}Rejected At{% else %}Approved At{% endif %}</td><td>{{ coupon.approved_at|date:"j M Y H:i" }}</td></tr>
+            {% endif %}
+            {% if coupon.was_edited_by_approver %}
+            <tr><td style="color:var(--text-muted);">Approver Edits</td><td>
+              {% if coupon.original_litres is not None %}Litres: {{ coupon.original_litres }} → {{ coupon.litres }}{% if coupon.original_cost_per_litre is not None %}<br>{% endif %}{% endif %}
+              {% if coupon.original_cost_per_litre is not None %}Cost/L: ₦ {{ coupon.original_cost_per_litre }} → ₦ {{ coupon.cost_per_litre }}{% endif %}
+            </td></tr>
+            {% endif %}
+            {% if coupon.rejection_reason %}
+            <tr><td style="color:var(--text-muted);">Rejection Reason</td><td class="text-danger">{{ coupon.rejection_reason }}</td></tr>
             {% endif %}
             {% if coupon.cancellation_reason %}
             <tr><td style="color:var(--text-muted);">Cancellation Reason</td><td class="text-danger">{{ coupon.cancellation_reason }}</td></tr>
@@ -89,7 +121,7 @@
 
   <!-- Right: cancel panel -->
   <div>
-    {% if coupon.status == "issued" and can_edit %}
+    {% if coupon.is_open and can_edit %}
     <div class="card" style="border-top:3px solid var(--danger);">
       <div class="card-header"><div class="card-title text-danger">Cancel Coupon</div></div>
       <div class="card-body">

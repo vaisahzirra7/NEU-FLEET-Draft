@@ -16,6 +16,9 @@ class AuditLog(models.Model):
     ACTION_ISSUE    = "coupon_issue"
     ACTION_REDEEM   = "coupon_redeem"
     ACTION_CANCEL   = "coupon_cancel"
+    ACTION_APPROVE = "approve" 
+    ACTION_REJECT = "reject"   
+
     ACTION_CHOICES  = [
         (ACTION_CREATE,  "Create"),
         (ACTION_EDIT,    "Edit"),
@@ -25,6 +28,8 @@ class AuditLog(models.Model):
         (ACTION_ISSUE,   "Coupon Issued"),
         (ACTION_REDEEM,  "Coupon Redeemed"),
         (ACTION_CANCEL,  "Coupon Cancelled"),
+        (ACTION_APPROVE, "Approve"),
+        (ACTION_REJECT,  "Rejecte"),
     ]
 
     # User may be null if account was deleted (preserved for audit integrity)

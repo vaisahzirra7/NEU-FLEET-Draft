@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{% if destination %}Edit{% else %}Add{% endif %} Destination{% endblock %}
+{% block page_title %}{% if destination %}Edit{% else %}Add{% endif %} Destination{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'trips:destination_list' %}">Destinations</a>
+  <span class="sep">›</span> {% if destination %}{{ destination.name }}{% else %}Add{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width:540px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        {% if destination %}Edit Destination{% else %}Add Destination{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Name <span class="req">*</span></label>
+          <input type="text" name="name"
+                 class="form-control {% if errors.name %}field-error{% endif %}"
+                 value="{% if post.name %}{{ post.name }}{% elif destination %}{{ destination.name }}{% endif %}"
+                 placeholder="e.g. Abuja, Lagos, Kano">
+          {% if errors.name %}<div class="error-msg">{{ errors.name }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Code (optional)</label>
+          <input type="text" name="code" class="form-control"
+                 value="{% if post.code %}{{ post.code }}{% elif destination %}{{ destination.code }}{% endif %}"
+                 placeholder="e.g. ABJ, LOS, KAN" maxlength="20">
+          <div class="form-hint">Short identifier — appears in dropdowns alongside the name.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <textarea name="notes" rows="2" class="form-control"
+                    placeholder="Any internal note about this destination...">{% if post.notes %}{{ post.notes }}{% elif destination %}{{ destination.notes }}{% endif %}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.9rem;">
+            <input type="checkbox" name="is_active"
+                   {% if destination %}{% if destination.is_active %}checked{% endif %}{% else %}{% if post.is_active == 'on' or not post %}checked{% endif %}{% endif %}>
+            Active
+          </label>
+          <div class="form-hint">Only active destinations appear in trip-logging dropdowns.</div>
+        </div>
+
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn btn-primary">{% if destination %}Save Changes{% else %}Add Destination{% endif %}</button>
+          <a href="{% url 'trips:destination_list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

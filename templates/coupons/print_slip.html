@@ -353,6 +353,7 @@
     <!-- Body -->
     <div class="coupon-body">
 
+      {% if coupon.is_for_vehicle %}
       <div class="coupon-row">
         <div class="coupon-field">
           <div class="field-label">Vehicle</div>
@@ -367,11 +368,11 @@
       <div class="coupon-row">
         <div class="coupon-field">
           <div class="field-label">Driver</div>
-          <div class="field-value">{{ coupon.driver.full_name }}</div>
+          <div class="field-value">{% if coupon.driver_id %}{{ coupon.driver.full_name }}{% else %}—{% endif %}</div>
         </div>
         <div class="coupon-field">
           <div class="field-label">Staff ID</div>
-          <div class="field-value">{{ coupon.driver.staff_id }}</div>
+          <div class="field-value">{% if coupon.driver_id %}{{ coupon.driver.staff_id }}{% else %}—{% endif %}</div>
         </div>
       </div>
 
@@ -385,6 +386,40 @@
           <div class="field-value">{{ coupon.vehicle.get_fuel_type_display }}</div>
         </div>
       </div>
+      {% else %}
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Generator</div>
+          <div class="field-value">{{ coupon.generator.tag }}</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">Generator Name</div>
+          <div class="field-value">{{ coupon.generator.name }}</div>
+        </div>
+      </div>
+
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Building</div>
+          <div class="field-value">{{ coupon.generator.building }}</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">kVA Rating</div>
+          <div class="field-value">{{ coupon.generator.kva_rating }}</div>
+        </div>
+      </div>
+
+      <div class="coupon-row">
+        <div class="coupon-field">
+          <div class="field-label">Fuel Station</div>
+          <div class="field-value">{{ coupon.fuel_station.name }}</div>
+        </div>
+        <div class="coupon-field">
+          <div class="field-label">Fuel Type</div>
+          <div class="field-value">{{ coupon.generator.get_fuel_type_display }}</div>
+        </div>
+      </div>
+      {% endif %}
 
       <div class="coupon-row">
         <div class="coupon-field">

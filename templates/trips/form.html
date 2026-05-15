@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}Log Trip{% endblock %}
+{% block page_title %}Log Trip{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> <a href="{% url 'trips:list' %}">Trips</a> <span class="sep">›</span> Log{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+<style>
+.select2-container .select2-selection--single{height:38px;border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
+.select2-container--default .select2-selection--single .select2-selection__rendered{line-height:36px;color:var(--text);padding-left:.82rem;}
+.select2-container--default .select2-selection--single .select2-selection__arrow{height:36px;right:8px;}
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--open .select2-selection--single{border-color:var(--navy-light);box-shadow:0 0 0 3px rgba(26,50,96,.1);}
+.select2-dropdown{border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
+.select2-container--default .select2-results__option--highlighted[aria-selected]{background-color:var(--navy);}
+.select2-search--dropdown .select2-search__field{border:1px solid var(--border-dark);border-radius:var(--radius);padding:.4rem .7rem;font-family:var(--font);font-size:.84rem;}
+
+.from-to-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem;}
+.from-to-row .form-group{margin-bottom:0;}
+.coupon-picker{max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:.5rem;background:var(--surface);}
+.coupon-picker label{display:flex;align-items:center;gap:.5rem;padding:.35rem .45rem;border-radius:4px;cursor:pointer;font-size:.85rem;}
+.coupon-picker label:hover{background:var(--surface-2);}
+.coupon-picker input[type=checkbox]{margin:0;}
+.coupon-picker .empty-msg{padding:1rem;text-align:center;color:var(--text-muted);font-size:.85rem;}
+.field-error{border-color:var(--danger,#dc2626) !important;}
+.error-msg{color:var(--danger,#dc2626);font-size:.78rem;margin-top:.2rem;}
+.autofill-note{font-size:.78rem;color:var(--info, #0d6a9e);margin-top:.25rem;display:none;}
+.autofill-note.visible{display:block;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:780px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Log a Trip
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="form-hint" style="margin:-.5rem 0 1rem 0;padding:.6rem .8rem;background:var(--surface-2);border-radius:6px;font-size:.82rem;">
+        Select the driver first — their default vehicle will auto-fill. You can override it.
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Driver <span class="req">*</span></label>
+            <select name="driver" id="id_driver" class="form-select {% if errors.driver %}field-error{% endif %}">
+              <option value="">— Select Driver —</option>
+              {% for d in drivers %}
+              <option value="{{ d.pk }}" {% if post.driver == d.pk|stringformat:"s" %}selected{% endif %}>
+                {{ d.full_name }}{% if d.payment_type %} ({{ d.get_payment_type_display }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            {% if errors.driver %}<div class="error-msg">{{ errors.driver }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vehicle <span class="req">*</span></label>
+            <select name="vehicle" id="id_vehicle" class="form-select {% if errors.vehicle %}field-error{% endif %}">
+              <option value="">— Select Vehicle —</option>
+              {% for v in vehicles %}
+              <option value="{{ v.pk }}"
+                      data-default-driver="{{ v.default_driver_id|default:'' }}"
+                      {% if post.vehicle == v.pk|stringformat:"s" %}selected{% endif %}>
+                {{ v.plate_number }} — {{ v.make }} {{ v.model }}
+              </option>
+              {% endfor %}
+            </select>
+            {% if errors.vehicle %}<div class="error-msg">{{ errors.vehicle }}</div>{% endif %}
+            <div class="autofill-note" id="autofillNote">✓ Auto-filled from driver's default vehicle. You can change it.</div>
+          </div>
+        </div>
+
+        {# ─── From ─── #}
+        <div>
+          <label class="form-label">From <span class="req">*</span></label>
+          <div class="from-to-row">
+            <div class="form-group">
+              <select name="from_destination" id="id_from_destination" class="form-select">
+                <option value="">— Pick a destination —</option>
+                {% for d in destinations %}
+                <option value="{{ d.pk }}" {% if post.from_destination == d.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ d.name }}{% if d.code %} ({{ d.code }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <input type="text" name="from_other" class="form-control"
+                     value="{{ post.from_other|default:'' }}"
+                     placeholder="Or type a one-off origin">
+            </div>
+          </div>
+          {% if errors.from %}<div class="error-msg" style="margin-top:-.3rem;margin-bottom:.6rem;">{{ errors.from }}</div>{% endif %}
+        </div>
+
+        {# ─── To ─── #}
+        <div>
+          <label class="form-label">To <span class="req">*</span></label>
+          <div class="from-to-row">
+            <div class="form-group">
+              <select name="to_destination" id="id_to_destination" class="form-select">
+                <option value="">— Pick a destination —</option>
+                {% for d in destinations %}
+                <option value="{{ d.pk }}" {% if post.to_destination == d.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ d.name }}{% if d.code %} ({{ d.code }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <input type="text" name="to_other" class="form-control"
+                     value="{{ post.to_other|default:'' }}"
+                     placeholder="Or type a one-off destination">
+            </div>
+          </div>
+          {% if errors.to %}<div class="error-msg" style="margin-top:-.3rem;margin-bottom:.6rem;">{{ errors.to }}</div>{% endif %}
+        </div>
+
+        <div class="form-hint" style="margin-top:-.3rem;margin-bottom:1rem;">
+          Pick from the dropdown OR type a one-off — not both. If both are filled, the dropdown wins.
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Trip Date <span class="req">*</span></label>
+            <input type="date" name="trip_date" class="form-control {% if errors.trip_date %}field-error{% endif %}"
+                   value="{{ post.trip_date|default:'' }}">
+            {% if errors.trip_date %}<div class="error-msg">{{ errors.trip_date }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount Paid (₦) <span class="req">*</span></label>
+            <input type="number" step="0.01" min="0" name="amount_paid"
+                   class="form-control {% if errors.amount_paid %}field-error{% endif %}"
+                   value="{{ post.amount_paid|default:'' }}" placeholder="0.00">
+            {% if errors.amount_paid %}<div class="error-msg">{{ errors.amount_paid }}</div>{% endif %}
+            <div class="form-hint">Enter 0 for salaried drivers.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Purpose</label>
+          <input type="text" name="purpose" class="form-control"
+                 value="{{ post.purpose|default:'' }}"
+                 placeholder="e.g. VC airport pickup, hospital run">
+        </div>
+
+        {# ─── Fuel coupons — populated dynamically based on selected vehicle ─── #}
+        <div class="form-group">
+          <label class="form-label">Fuel Coupons Used (optional)</label>
+          <div class="coupon-picker" id="couponPicker">
+            <div class="empty-msg">Select a vehicle to see available coupons.</div>
+          </div>
+          <div class="form-hint">
+            Only shows redeemed coupons for the selected vehicle that haven't been linked to another trip.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" rows="2" class="form-control"
+                    placeholder="Any extra detail...">{{ post.notes|default:'' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn btn-primary">Log Trip</button>
+          <a href="{% url 'trips:list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# JSON blobs for client-side lookups #}
+{{ coupons_by_vehicle|json_script:"couponsByVehicleData" }}
+{{ driver_to_vehicles|json_script:"driverToVehiclesData" }}
+{# Re-render of selected coupon IDs (for POST-error redisplay) #}
+{{ selected_coupons|json_script:"selectedCouponIds" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+<script>
+$(function () {
+  // ── Searchable dropdowns ──
+  $('#id_driver').select2({ width:'100%', placeholder:'— Select Driver —' });
+  $('#id_vehicle').select2({ width:'100%', placeholder:'— Select Vehicle —' });
+  $('#id_from_destination').select2({ width:'100%', placeholder:'— Pick a destination —', allowClear:true });
+  $('#id_to_destination').select2({ width:'100%', placeholder:'— Pick a destination —', allowClear:true });
+});
+
+(function () {
+  function readBlob(elId) {
+    const el = document.getElementById(elId);
+    if (!el) return null;
+    try { return JSON.parse(el.textContent); } catch (_) { return null; }
+  }
+  const couponsByVehicle = readBlob("couponsByVehicleData") || {};
+  const driverToVehicles = readBlob("driverToVehiclesData") || {};
+  const preselectedRaw   = readBlob("selectedCouponIds") || [];
+  const preselectedCouponIds = preselectedRaw.map(String);
+
+  const driverEl  = document.getElementById("id_driver");
+  const vehicleEl = document.getElementById("id_vehicle");
+  const note      = document.getElementById("autofillNote");
+  const picker    = document.getElementById("couponPicker");
+
+  // ── Correction #2: driver → vehicle suggestion ──
+  function tryAutofillVehicle() {
+    const driverId = driverEl.value;
+    if (!driverId) { note.classList.remove("visible"); return; }
+    if (vehicleEl.value) { note.classList.remove("visible"); return; }
+    const candidates = driverToVehicles[driverId] || [];
+    if (candidates.length === 1) {
+      $(vehicleEl).val(String(candidates[0])).trigger("change");
+      note.classList.add("visible");
+    } else {
+      note.classList.remove("visible");
+    }
+  }
+
+  // ── Correction #3: render coupons for selected vehicle ──
+  function renderCouponsForVehicle() {
+    const vid = vehicleEl.value;
+    picker.innerHTML = "";
+    if (!vid) {
+      picker.innerHTML = '<div class="empty-msg">Select a vehicle to see available coupons.</div>';
+      return;
+    }
+    const list = couponsByVehicle[vid] || [];
+    if (list.length === 0) {
+      picker.innerHTML = '<div class="empty-msg">No redeemed coupons available for this vehicle.</div>';
+      return;
+    }
+    list.forEach(c => {
+      const id = String(c.id);
+      const checked = preselectedCouponIds.indexOf(id) !== -1 ? "checked" : "";
+      const label = document.createElement("label");
+      label.innerHTML =
+        '<input type="checkbox" name="fuel_coupons" value="' + id + '" ' + checked + '>' +
+        '<span><strong>' + c.coupon_id + '</strong> · ' +
+        c.driver + ' · ' + c.litres + ' L · ₦ ' + c.total_value +
+        ' · <span style="color:var(--text-muted);">' + c.issued + '</span></span>';
+      picker.appendChild(label);
+    });
+  }
+
+  $(driverEl).on("change", function () {
+    tryAutofillVehicle();
+  });
+  $(vehicleEl).on("change", function () {
+    note.classList.remove("visible");
+    renderCouponsForVehicle();
+  });
+
+  // Initial render for POST-error re-display
+  if (driverEl.value && !vehicleEl.value) tryAutofillVehicle();
+  renderCouponsForVehicle();
+})();
+</script>
+{% endblock %}

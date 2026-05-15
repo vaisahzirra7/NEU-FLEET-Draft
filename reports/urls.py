@@ -4,10 +4,11 @@ from . import views
 app_name = "reports"
 
 urlpatterns = [
-    path("",             views.reports_index,      name="index"),
-    path("vehicles/",    views.vehicle_spending,   name="vehicle_spending"),
-    path("monthly/",     views.monthly_expense,    name="monthly_expense"),
-    path("maintenance/", views.maintenance_report, name="maintenance_report"),
+    path("",                  views.reports_index,      name="index"),
+    path("vehicles/",         views.vehicle_spending,   name="vehicle_spending"),
+    path("monthly/",          views.monthly_expense,    name="monthly_expense"),
+    path("maintenance/",      views.maintenance_report, name="maintenance_report"),
+    path("driver-payments/",  views.driver_payments,    name="driver_payments"),
 
     # Report scheduling
     path("schedules/",                    views.schedule_list,     name="schedule_list"),

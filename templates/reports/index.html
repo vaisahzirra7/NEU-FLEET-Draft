@@ -58,5 +58,20 @@
     </div>
   </a>
 
+  <a href="{% url 'reports:driver_payments' %}" style="text-decoration:none;">
+    <div class="card" style="transition:box-shadow .18s,transform .18s;cursor:pointer;" onmouseover="this.style.boxShadow='var(--shadow)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+      <div class="card-body">
+        <div style="width:46px;height:46px;background:rgba(245,158,11,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber, #f59e0b)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:.35rem;">Driver Payments</div>
+        <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">Trip payment totals per driver for a chosen period. Filter by driver or payment type.</div>
+        <div style="margin-top:1rem;display:flex;align-items:center;gap:.35rem;font-size:.78rem;font-weight:600;color:var(--navy-light);">
+          Open Report <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+    </div>
+  </a>
+
 </div>
 {% endblock %}

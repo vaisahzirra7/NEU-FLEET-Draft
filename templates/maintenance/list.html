@@ -7,7 +7,7 @@
 <div class="page-header">
   <div class="page-header-left">
     <h1>Maintenance Records</h1>
-    <p>All vehicle service and repair history</p>
+    <p>All vehicle and generator service / repair history</p>
   </div>
   {% if can_write %}
   <a href="{% url 'maintenance:create' %}" class="btn btn-primary">
@@ -41,7 +41,7 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Vehicle</th>
+          <th>Asset</th>
           <th>Date</th>
           <th>Service Type</th>
           <th>Description</th>
@@ -55,10 +55,29 @@
       <tbody>
         {% for r in records %}
         <tr>
-          <td><a href="{% url 'vehicles:detail' r.vehicle.pk %}" class="fw-600">{{ r.vehicle.plate_number }}</a></td>
+          <td>
+            {% if r.is_for_vehicle %}
+              <div>
+                <a href="{% url 'vehicles:detail' r.vehicle.pk %}" class="fw-600">{{ r.vehicle.plate_number }}</a>
+                <span class="asset-label-text asset-label-vehicle">Vehicle</span>
+              </div>
+            {% else %}
+              <div>
+                <a href="{% url 'generators:detail' r.generator.pk %}" class="fw-600">{{ r.generator.tag }}</a>
+                <span class="asset-label-text asset-label-generator">Generator</span>
+              </div>
+            {% endif %}
+          </td>
           <td>{{ r.service_date|date:"j M Y" }}</td>
           <td><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
-          <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.description }}</td>
+          <td style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{% if r.description %}{{ r.description }}{% else %}{% for it in r.items.all %}{{ it.description }}{% if not forloop.last %} · {% endif %}{% endfor %}{% endif %}">
+            {% if r.description %}
+              {{ r.description }}
+            {% else %}
+              {% for it in r.items.all %}{{ it.description }}{% if not forloop.last %} · {% endif %}{% endfor %}
+              {% if not r.items.all %}—{% endif %}
+            {% endif %}
+          </td>
           <td>{{ r.effective_vendor_name }}</td>
           <td class="fw-600">₦ {{ r.total_cost|floatformat:2 }}</td>
           <td>

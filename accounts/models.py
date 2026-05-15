@@ -56,26 +56,33 @@ class RoleModulePermission(models.Model):
     The navbar and all views check these flags.
     """
     MODULE_CHOICES = [
-        ("vehicles",    "Vehicle Management"),
-        ("drivers",     "Driver Management"),
-        ("coupons",     "Fuel Coupons"),
-        ("fuel_logs",   "Fuel Logs"),
-        ("maintenance", "Maintenance"),
-        ("vendors",     "Vendor Register"),
-        ("reports",     "Reports"),
-        ("dashboard",   "Dashboard"),
-        ("users",       "User Management"),
-        ("roles",       "Role Management"),
-        ("audit",       "Audit Trail"),
+        ("vehicles",     "Vehicle Management"),
+        ("generators",   "Generator Management"),
+        ("drivers",      "Driver Management"),
+        ("coupons",      "Fuel Coupons"),
+        ("fuel_logs",    "Fuel Logs"),
+        ("maintenance",  "Maintenance"),
+        ("vendors",      "Vendor Register"),
+        ("reports",      "Reports"),
+        ("dashboard",    "Dashboard"),
+        ("users",        "User Management"),
+        ("roles",        "Role Management"),
+        ("audit",        "Audit Trail"),
+        ("trips",        "Trips"),
+        ("destinations", "Destinations"),
     ]
 
     role   = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="permissions")
     module = models.CharField(max_length=50, choices=MODULE_CHOICES)
 
-    can_read   = models.BooleanField(default=False)
-    can_write  = models.BooleanField(default=False)
-    can_edit   = models.BooleanField(default=False)
-    can_delete = models.BooleanField(default=False)
+    can_read    = models.BooleanField(default=False)
+    can_write   = models.BooleanField(default=False)
+    can_edit    = models.BooleanField(default=False)
+    can_delete  = models.BooleanField(default=False)
+    can_approve = models.BooleanField(
+        default=False,
+        help_text="Approve/reject actions (currently used by Fuel Coupons; reserved for future approval workflows)."
+    )
 
     class Meta:
         db_table = "role_module_permissions"
@@ -87,10 +94,12 @@ class RoleModulePermission(models.Model):
 
     @property
     def is_read_only(self):
-        return self.can_read and not (self.can_write or self.can_edit or self.can_delete)
+        return self.can_read and not (self.can_write or self.can_edit or self.can_delete or self.can_approve)
 
     @property
     def is_full_access(self):
+        # Note: can_approve is intentionally excluded from "full access" because
+        # it's an action-level grant (currently coupons-only), not a standard CRUD flag.
         return self.can_read and self.can_write and self.can_edit and self.can_delete
 
 
@@ -184,6 +193,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         return list(
             self.role.permissions.filter(can_read=True).values_list("module", flat=True)
         )
+
+    @property
+    def can_approve_coupons(self):
+        """Convenience for templates — used to show the Pending Coupons nav item."""
+        return self.has_module_perm("coupons", "approve")
 
 
 class PasswordResetOTP(models.Model):

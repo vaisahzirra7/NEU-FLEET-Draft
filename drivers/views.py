@@ -127,6 +127,7 @@ def create_view(request):
                 license_class  = request.POST["license_class"],
                 license_expiry = request.POST["license_expiry"],
                 status         = request.POST.get("status", Driver.STATUS_ACTIVE),
+                payment_type   = request.POST.get("payment_type", Driver.PAY_SALARIED),
                 notes          = request.POST.get("notes", "").strip(),
             )
             AuditLog.objects.create(
@@ -146,14 +147,17 @@ def create_view(request):
             "license_expiry_val": request.POST.get("license_expiry", ""),
             "license_class_val":  request.POST.get("license_class", ""),
             "status_val":         request.POST.get("status", ""),
+            "payment_type_val":   request.POST.get("payment_type", ""),
             "notes_val":          request.POST.get("notes", ""),
-            "license_classes": Driver.LICENSE_CLASSES,
-            "status_choices": Driver.STATUS_CHOICES,
+            "license_classes":    Driver.LICENSE_CLASSES,
+            "status_choices":     Driver.STATUS_CHOICES,
+            "payment_choices":    Driver.PAY_CHOICES,
         })
 
     return render(request, "drivers/form.html", {
         "license_classes": Driver.LICENSE_CLASSES,
-        "status_choices": Driver.STATUS_CHOICES,
+        "status_choices":  Driver.STATUS_CHOICES,
+        "payment_choices": Driver.PAY_CHOICES,
     })
 
 
@@ -170,6 +174,7 @@ def edit_view(request, pk):
         driver.license_class  = request.POST.get("license_class", driver.license_class)
         driver.license_expiry = request.POST.get("license_expiry", driver.license_expiry)
         driver.status         = request.POST.get("status", driver.status)
+        driver.payment_type   = request.POST.get("payment_type", driver.payment_type)
         driver.notes          = request.POST.get("notes", "").strip()
         driver.save()
 
@@ -184,5 +189,6 @@ def edit_view(request, pk):
     return render(request, "drivers/form.html", {
         "obj": driver,
         "license_classes": Driver.LICENSE_CLASSES,
-        "status_choices": Driver.STATUS_CHOICES,
+        "status_choices":  Driver.STATUS_CHOICES,
+        "payment_choices": Driver.PAY_CHOICES,
     })

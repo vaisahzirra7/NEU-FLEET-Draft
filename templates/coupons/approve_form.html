@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Review Coupon {{ coupon.coupon_id }}{% endblock %}
+{% block page_title %}Review Coupon{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> <a href="{% url 'coupons:list' %}">Fuel Coupons</a> <span class="sep">›</span> <a href="{% url 'coupons:pending_list' %}">Pending</a> <span class="sep">›</span> {{ coupon.coupon_id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Review Coupon</h1>
+    <p>Approve or reject this coupon. You may adjust litres or cost before approving.</p>
+  </div>
+  <div class="d-flex gap-1">
+    <a href="{% url 'coupons:pending_list' %}" class="btn btn-outline">Back to Pending</a>
+  </div>
+</div>
+
+{% if coupon.issued_by == request.user %}
+<div class="card" style="margin-bottom:1rem;border-left:3px solid var(--warning, #f59e0b);">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <strong>Note:</strong> You issued this coupon. If you approve it yourself, the action will be flagged as
+    <em>self-approved</em> in the audit log.
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:1.25rem;">
+    <h3 style="margin:0 0 1rem 0;font-size:1rem;">Coupon Details</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 2rem;font-size:.9rem;">
+      <div><span style="color:var(--text-muted);">Coupon ID:</span> <strong>{{ coupon.coupon_id }}</strong></div>
+      <div><span style="color:var(--text-muted);">Issued:</span> {{ coupon.issue_datetime|date:"j M Y H:i" }}</div>
+      {% if coupon.is_for_vehicle %}
+      <div><span style="color:var(--text-muted);">Vehicle:</span> {{ coupon.vehicle.plate_number }}</div>
+      <div><span style="color:var(--text-muted);">Driver:</span> {% if coupon.driver_id %}{{ coupon.driver.full_name }}{% else %}—{% endif %}</div>
+      {% else %}
+      <div><span style="color:var(--text-muted);">Generator:</span> {{ coupon.generator.tag }} — {{ coupon.generator.name }}</div>
+      <div><span style="color:var(--text-muted);">Building:</span> {{ coupon.generator.building }}</div>
+      {% endif %}
+      <div><span style="color:var(--text-muted);">Fuel Station:</span> {{ coupon.fuel_station.name }}</div>
+      <div><span style="color:var(--text-muted);">Issued By:</span> {{ coupon.issued_by.full_name }}</div>
+      {% if coupon.purpose %}
+      <div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Purpose:</span> {{ coupon.purpose }}</div>
+      {% endif %}
+      {% if coupon.expiry_date %}
+      <div><span style="color:var(--text-muted);">Expiry:</span> {{ coupon.expiry_date|date:"j M Y" }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<form method="post" action="{% url 'coupons:approve' coupon.pk %}">
+  {% csrf_token %}
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-body" style="padding:1.25rem;">
+      <h3 style="margin:0 0 1rem 0;font-size:1rem;">Adjust Values (Optional)</h3>
+      <p style="color:var(--text-muted);font-size:.85rem;margin:0 0 1rem 0;">
+        Leave fields unchanged to approve as-issued. If you change them, the original values will be preserved in the audit trail.
+      </p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">Litres <span class="text-danger">*</span></label>
+          <input type="number" step="0.01" min="0.01" name="litres" id="id_litres" class="form-control"
+                 value="{{ post.litres|default:coupon.litres }}" required>
+          {% if errors.litres %}<small class="form-error">{{ errors.litres }}</small>{% endif %}
+          <small style="color:var(--text-muted);">Originally requested: {{ coupon.litres }} L</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cost per Litre (₦) <span class="text-danger">*</span></label>
+          <input type="number" step="0.01" min="0.01" name="cost_per_litre" id="id_cost_per_litre" class="form-control"
+                 value="{{ post.cost_per_litre|default:coupon.cost_per_litre }}" required>
+          {% if errors.cost_per_litre %}<small class="form-error">{{ errors.cost_per_litre }}</small>{% endif %}
+          <small style="color:var(--text-muted);">Originally requested: ₦ {{ coupon.cost_per_litre }}</small>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);font-size:.9rem;color:var(--text-muted);">
+        New total value: <strong style="color:var(--text);" id="liveTotal">₦ {{ coupon.total_value|floatformat:2 }}</strong>
+        <span id="totalChangedFlag" style="display:none;margin-left:.6rem;font-size:.78rem;color:var(--warning, #b45309);">
+          (changed from ₦ {{ coupon.total_value|floatformat:2 }})
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-1" style="justify-content:flex-end;">
+    <button type="button" class="btn btn-danger" onclick="document.getElementById('rejectModal').style.display='flex';">
+      Reject
+    </button>
+    <button type="submit" class="btn btn-primary"
+            onclick="return confirm('Approve this coupon? It will become available for printing.');">
+      Approve
+    </button>
+  </div>
+</form>
+
+<!-- Reject modal -->
+<div id="rejectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);max-width:480px;width:90%;border-radius:8px;padding:1.5rem;">
+    <h3 style="margin:0 0 1rem 0;">Reject Coupon</h3>
+    <form method="post" action="{% url 'coupons:reject' coupon.pk %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Reason (optional)</label>
+        <textarea name="rejection_reason" class="form-control" rows="3"
+                  placeholder="Why is this coupon being rejected?"></textarea>
+      </div>
+      <div class="d-flex gap-1" style="justify-content:flex-end;margin-top:1rem;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('rejectModal').style.display='none';">Cancel</button>
+        <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const litresInput = document.getElementById('id_litres');
+    const costInput   = document.getElementById('id_cost_per_litre');
+    const totalEl     = document.getElementById('liveTotal');
+    const changedFlag = document.getElementById('totalChangedFlag');
+    const originalTotal = {{ coupon.total_value|stringformat:".2f" }};
+
+    function fmt(n) {
+      // Format like "₦ 13,800.00" — group thousands, two decimals.
+      return "₦ " + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function recalc() {
+      const l = parseFloat(litresInput.value);
+      const c = parseFloat(costInput.value);
+      if (isNaN(l) || isNaN(c) || l <= 0 || c <= 0) {
+        totalEl.textContent = "—";
+        changedFlag.style.display = 'none';
+        return;
+      }
+      const newTotal = l * c;
+      totalEl.textContent = fmt(newTotal);
+      // Show "changed from" flag only if it differs from the original
+      if (Math.abs(newTotal - originalTotal) > 0.001) {
+        changedFlag.style.display = 'inline';
+      } else {
+        changedFlag.style.display = 'none';
+      }
+    }
+
+    litresInput.addEventListener('input', recalc);
+    costInput.addEventListener('input', recalc);
+    // Run once on load in case the form was re-rendered with edited POST values
+    recalc();
+  })();
+</script>
+{% endblock %}

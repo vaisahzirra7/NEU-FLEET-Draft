@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Trips{% endblock %}
+{% block page_title %}Trips{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Trips{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Trips</h1>
+    <p>Log and review driver trips. Total below reflects current filter.</p>
+  </div>
+  <div class="d-flex gap-1">
+    {% if can_write %}
+    <a href="{% url 'trips:create' %}" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Log Trip
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar" style="flex-wrap:wrap;gap:.5rem;">
+      <div class="search-wrap" style="flex:1 1 240px;">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Driver, plate, destination..." class="form-control">
+      </div>
+      <select name="driver" class="form-select" style="width:auto;">
+        <option value="">All drivers</option>
+        {% for d in drivers %}
+        <option value="{{ d.pk }}" {% if filters.driver == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.full_name }}</option>
+        {% endfor %}
+      </select>
+      <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control" style="width:auto;" title="From date">
+      <input type="date" name="date_to"   value="{{ filters.date_to }}"   class="form-control" style="width:auto;" title="To date">
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if q or filters.driver or filters.date_from or filters.date_to %}
+      <a href="{% url 'trips:list' %}" class="btn btn-outline">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem;background:var(--surface-2);">
+  <div class="card-body" style="padding:.75rem 1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <span style="color:var(--text-muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Total paid (current filter)</span>
+    <strong style="font-size:1.2rem;">₦ {{ total_paid|floatformat:2 }}</strong>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Driver</th>
+          <th>Vehicle</th>
+          <th>From → To</th>
+          <th>Amount</th>
+          <th>Purpose</th>
+          <th>Logged By</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in trips %}
+        <tr>
+          <td>{{ t.trip_date|date:"j M Y" }}</td>
+          <td>{{ t.driver.full_name }}</td>
+          <td>{{ t.vehicle.plate_number }}</td>
+          <td>{{ t.from_label }} → {{ t.to_label }}</td>
+          <td class="fw-600">₦ {{ t.amount_paid|floatformat:2 }}</td>
+          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ t.purpose }}">{{ t.purpose|default:"—" }}</td>
+          <td style="color:var(--text-muted);font-size:.85rem;">{{ t.logged_by.full_name }}</td>
+          <td><a href="{% url 'trips:detail' t.pk %}" class="btn btn-outline btn-sm">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">
+          <div class="empty-state">
+            <div class="empty-title">No trips logged</div>
+            <div class="empty-sub">{% if can_write %}Click "Log Trip" to record one.{% endif %}</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

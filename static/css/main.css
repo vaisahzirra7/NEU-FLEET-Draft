@@ -334,6 +334,23 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
 .badge-amber   { background: var(--amber-pale);  color: #a06010;        }
 .badge-muted   { background: var(--surface-2);  color: var(--text-muted); border: 1px solid var(--border); }
 
+/* ═══ ASSET LABELS (Vehicle / Generator subtitle under plate/tag) ═══ */
+.asset-label-text { display: block; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-top: .12rem; line-height: 1; }
+.asset-label-vehicle   { color: var(--info); }
+.asset-label-generator { color: #a06010; }
+
+/* Legacy boxed pills — kept for now; new code uses .asset-label-text */
+.asset-pill { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .5rem; border-radius: 4px; font-size: .68rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; text-transform: uppercase; }
+.asset-pill-vehicle   { background: rgba(13,106,158,.10);  color: var(--info);   border: 1px solid rgba(13,106,158,.18); }
+.asset-pill-generator { background: rgba(245,158,11,.12); color: #a06010;       border: 1px solid rgba(245,158,11,.25); }
+
+/* ═══ ASSET TOGGLE (Vehicle / Generator picker) ════════════════ */
+.asset-toggle { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+.toggle-pill { cursor: pointer; margin: 0; }
+.toggle-pill input { display: none; }
+.toggle-pill span { display: inline-block; padding: .5rem 1rem; border-radius: 6px; font-size: .85rem; font-weight: 600; color: var(--text-muted); transition: all .15s; }
+.toggle-pill input:checked + span { background: var(--navy); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+
 /* ═══ BUTTONS ═══════════════════════════════════════════════ */
 .btn { display: inline-flex; align-items: center; gap: .45rem; padding: .48rem .95rem; border-radius: var(--radius); font-size: .83rem; font-weight: 500; font-family: var(--font); cursor: pointer; border: 1px solid transparent; transition: all .15s; text-decoration: none; white-space: nowrap; line-height: 1.4; }
 .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }

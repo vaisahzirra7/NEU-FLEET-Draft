@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ gen.tag }}{% endblock %}
+{% block page_title %}Generator {{ gen.tag }}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'generators:list' %}">Generators</a>
+  <span class="sep">›</span> {{ gen.tag }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ gen.tag }}</h1>
+    <p>{{ gen.name }} · {{ gen.kva_rating }} kVA {{ gen.get_fuel_type_display }}</p>
+  </div>
+  <div class="d-flex gap-1">
+    {% if can_edit %}
+    <a href="{% url 'generators:edit' gen.pk %}" class="btn btn-outline">Edit</a>
+    {% endif %}
+    {% if can_delete and gen.status != "inactive" %}
+    <a href="{% url 'generators:delete' gen.pk %}" class="btn btn-outline" style="color:var(--danger);">Decommission</a>
+    {% endif %}
+    <a href="{% url 'generators:list' %}" class="btn btn-outline">Back</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;">
+  <div class="card">
+    <div class="card-body" style="padding:1.25rem;">
+      <h3 style="margin:0 0 1rem 0;font-size:1rem;">Details</h3>
+      <table class="info-table">
+        <tr><td style="color:var(--text-muted);width:160px;">Tag</td><td><strong>{{ gen.tag }}</strong></td></tr>
+        <tr><td style="color:var(--text-muted);">Name</td><td>{{ gen.name }}</td></tr>
+        <tr><td style="color:var(--text-muted);">Make</td><td>{{ gen.make }}</td></tr>
+        {% if gen.model %}<tr><td style="color:var(--text-muted);">Model</td><td>{{ gen.model }}</td></tr>{% endif %}
+        {% if gen.serial_number %}<tr><td style="color:var(--text-muted);">Serial Number</td><td>{{ gen.serial_number }}</td></tr>{% endif %}
+        <tr><td style="color:var(--text-muted);">kVA Rating</td><td>{{ gen.kva_rating }}</td></tr>
+        <tr><td style="color:var(--text-muted);">Fuel Type</td><td>{{ gen.get_fuel_type_display }}</td></tr>
+        {% if gen.tank_capacity_litres %}<tr><td style="color:var(--text-muted);">Tank Capacity</td><td>{{ gen.tank_capacity_litres }} L</td></tr>{% endif %}
+        <tr><td style="color:var(--text-muted);">Building</td><td>{{ gen.building }}</td></tr>
+        {% if gen.location_note %}<tr><td style="color:var(--text-muted);">Location Note</td><td>{{ gen.location_note }}</td></tr>{% endif %}
+        {% if gen.installed_date %}<tr><td style="color:var(--text-muted);">Installed</td><td>{{ gen.installed_date|date:"j F Y" }}</td></tr>{% endif %}
+        {% if gen.notes %}<tr><td style="color:var(--text-muted);">Notes</td><td>{{ gen.notes|linebreaksbr }}</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body" style="padding:1.25rem;">
+      <h3 style="margin:0 0 1rem 0;font-size:1rem;">Status</h3>
+      <div style="margin-bottom:1rem;">
+        {% if gen.status == "active" %}<span class="badge badge-success" style="font-size:.9rem;padding:.5rem 1rem;">Active</span>
+        {% elif gen.status == "under_repair" %}<span class="badge badge-amber" style="font-size:.9rem;padding:.5rem 1rem;">Under Repair</span>
+        {% else %}<span class="badge badge-muted" style="font-size:.9rem;padding:.5rem 1rem;">Inactive</span>{% endif %}
+      </div>
+      <table class="info-table">
+        <tr><td style="color:var(--text-muted);font-size:.85rem;">Monthly Fuel</td><td style="font-size:.85rem;">{% if gen.needs_monthly_fuel %}<span class="badge badge-success">Yes</span>{% else %}<span class="badge badge-muted">No</span>{% endif %}</td></tr>
+        <tr><td style="color:var(--text-muted);font-size:.85rem;">Registered</td><td style="font-size:.85rem;">{{ gen.created_at|date:"j M Y" }}</td></tr>
+        {% if gen.updated_at != gen.created_at %}
+        <tr><td style="color:var(--text-muted);font-size:.85rem;">Last Updated</td><td style="font-size:.85rem;">{{ gen.updated_at|date:"j M Y H:i" }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem;background:var(--surface-2);">
+  <div class="card-body" style="padding:1rem 1.25rem;">
+    <div style="font-size:.85rem;color:var(--text-muted);">
+      <strong>Coming soon:</strong> Fuel coupons issued to this generator and maintenance history will appear here once the generator integration with those modules is in place.
+    </div>
+  </div>
+</div>
+{% endblock %}

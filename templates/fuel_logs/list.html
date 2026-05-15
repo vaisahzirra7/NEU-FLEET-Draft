@@ -22,7 +22,7 @@
     <form method="get" class="filter-bar">
       <div class="search-wrap">
         <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" name="q" value="{{ q }}" placeholder="Coupon ID, plate, driver..." class="form-control">
+        <input type="text" name="q" value="{{ q }}" placeholder="Coupon ID, plate, tag, driver..." class="form-control">
       </div>
       <button type="submit" class="btn btn-outline">Search</button>
       {% if q %}<a href="{% url 'fuel_logs:list' %}" class="btn btn-outline">Clear</a>{% endif %}
@@ -36,8 +36,8 @@
       <thead>
         <tr>
           <th>Coupon</th>
-          <th>Vehicle</th>
-          <th>Driver</th>
+          <th>Asset</th>
+          <th>Driver / Building</th>
           <th>Fuel Station</th>
           <th>Date</th>
           <th>Litres</th>
@@ -49,8 +49,26 @@
         {% for log in logs %}
         <tr>
           <td><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
-          <td><a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a></td>
-          <td>{{ log.driver.full_name }}</td>
+          <td>
+            {% if log.is_for_vehicle %}
+              <div>
+                <a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a>
+                <span class="asset-label-text asset-label-vehicle">Vehicle</span>
+              </div>
+            {% else %}
+              <div>
+                <a href="{% url 'generators:detail' log.generator.pk %}">{{ log.generator.tag }}</a>
+                <span class="asset-label-text asset-label-generator">Generator</span>
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if log.is_for_vehicle %}
+              {{ log.driver.full_name|default:"—" }}
+            {% else %}
+              <span style="color:var(--text-muted);">{{ log.generator.building }}</span>
+            {% endif %}
+          </td>
           <td>{{ log.fuel_station.name|default:"—" }}</td>
           <td>{{ log.fuel_date|date:"j M Y" }}</td>
           <td>{{ log.actual_litres }} L</td>

@@ -12,6 +12,15 @@ class Driver(models.Model):
         (STATUS_INACTIVE, "Inactive"),
     ]
 
+    PAY_SALARIED = "salaried"
+    PAY_PER_TRIP = "per_trip"
+    PAY_MIXED    = "mixed"
+    PAY_CHOICES = [
+        (PAY_SALARIED, "Salaried"),
+        (PAY_PER_TRIP, "Paid per Trip"),
+        (PAY_MIXED,    "Mixed (Salary + Trip)"),
+    ]
+
     LICENSE_CLASSES = [
         ("A",  "Class A"),
         ("B",  "Class B"),
@@ -28,6 +37,10 @@ class Driver(models.Model):
     license_class   = models.CharField(max_length=5, choices=LICENSE_CLASSES)
     license_expiry  = models.DateField(help_text="Used to trigger 30-day expiry alert.")
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
+    payment_type    = models.CharField(
+        max_length=15, choices=PAY_CHOICES, default=PAY_SALARIED,
+        help_text="How this driver is paid. Affects trip-logging defaults."
+    )
     notes           = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

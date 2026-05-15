@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Generators{% endblock %}
+{% block page_title %}Generators{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Generators{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Generators</h1>
+    <p>Manage standby and primary generators across all buildings.</p>
+  </div>
+  <div class="d-flex gap-1">
+    {% if can_write %}
+    <a href="{% url 'generators:create' %}" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Generator
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar" style="flex-wrap:wrap;gap:.5rem;">
+      <div class="search-wrap" style="flex:1 1 280px;">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Tag, name, make, serial..." class="form-control">
+      </div>
+      <select name="status" class="form-select" style="width:auto;">
+        <option value="">All statuses</option>
+        {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="fuel" class="form-select" style="width:auto;">
+        <option value="">All fuels</option>
+        {% for val, label in fuel_choices %}
+        <option value="{{ val }}" {% if fuel_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if q or status_filter or fuel_filter %}
+      <a href="{% url 'generators:list' %}" class="btn btn-outline">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tag</th>
+          <th>Name</th>
+          <th>Make / Model</th>
+          <th>kVA</th>
+          <th>Fuel</th>
+          <th>Building</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in generators %}
+        <tr>
+          <td><strong>{{ g.tag }}</strong></td>
+          <td>{{ g.name }}</td>
+          <td>{{ g.make }}{% if g.model %} — {{ g.model }}{% endif %}</td>
+          <td>{{ g.kva_rating }}</td>
+          <td><span class="badge badge-muted">{{ g.get_fuel_type_display }}</span></td>
+          <td>{{ g.building }}{% if g.location_note %}<br><span style="font-size:.78rem;color:var(--text-muted);">{{ g.location_note }}</span>{% endif %}</td>
+          <td>
+            {% if g.status == "active" %}<span class="badge badge-success">Active</span>
+            {% elif g.status == "under_repair" %}<span class="badge badge-amber">Under Repair</span>
+            {% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
+          </td>
+          <td><a href="{% url 'generators:detail' g.pk %}" class="btn btn-outline btn-sm">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">
+          <div class="empty-state">
+            <div class="empty-title">No generators registered</div>
+            <div class="empty-sub">{% if can_write %}Click "Add Generator" to register the first one.{% endif %}</div>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

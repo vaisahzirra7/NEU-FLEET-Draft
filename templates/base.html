@@ -70,6 +70,17 @@
       </a>
       {% endif %}
 
+      {% if "generators" in modules %}
+      <a class="nav-item {% if 'generators' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'generators:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </span>
+        Generators
+      </a>
+      {% endif %}
+
       {% if "drivers" in modules %}
       <a class="nav-item {% if 'drivers' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'drivers:list' %}">
         <span class="nav-icon">
@@ -112,6 +123,18 @@
       </a>
       {% endif %}
 
+      {% if request.user.can_approve_coupons %}
+      <a class="nav-item {% if request.resolver_match.url_name == 'pending_list' %}active{% endif %}" href="{% url 'coupons:pending_list' %}" style="padding-left:2.4rem;font-size:.88rem;">
+        <span class="nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
+        Pending Approvals
+      </a>
+      {% endif %}
+
       {% if "fuel_logs" in modules %}
       <a class="nav-item {% if 'fuel_logs' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'fuel_logs:list' %}">
         <span class="nav-icon">
@@ -139,6 +162,19 @@
           </svg>
         </span>
         Maintenance
+      </a>
+      {% endif %}
+
+      {% if "trips" in modules %}
+      <a class="nav-item {% if request.resolver_match.app_name == 'trips' and 'destination' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'trips:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+            <circle cx="6" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="18" cy="18" r="1.5" fill="currentColor"/>
+          </svg>
+        </span>
+        Trips
       </a>
       {% endif %}
 
@@ -171,6 +207,18 @@
           </svg>
         </span>
         Departments
+      </a>
+      {% endif %}
+
+      {% if "destinations" in modules %}
+      <a class="nav-item {% if 'destination' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'trips:destination_list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </span>
+        Destinations
       </a>
       {% endif %}
 

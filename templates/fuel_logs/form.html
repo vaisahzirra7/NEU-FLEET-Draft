@@ -37,35 +37,17 @@
           <div id="coupon-info-box" style="{% if not prefilled %}display:none;{% endif %}background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-top:.5rem;">
             <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">Coupon Details</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .75rem;font-size:.82rem;">
-              <div><span style="color:var(--text-muted);">Vehicle:</span> <strong id="coupon-info-plate">{% if prefilled %}{{ prefilled.vehicle.plate_number }}{% endif %}</strong></div>
-              <div><span style="color:var(--text-muted);">Driver:</span> <strong id="coupon-info-driver">{% if prefilled %}{{ prefilled.driver.full_name }}{% endif %}</strong></div>
+              <div><span style="color:var(--text-muted);" id="coupon-info-asset-label">{% if prefilled %}{% if prefilled.is_for_vehicle %}Vehicle:{% else %}Generator:{% endif %}{% else %}Asset:{% endif %}</span> <strong id="coupon-info-asset">{% if prefilled %}{{ prefilled.asset_label }}{% endif %}</strong></div>
+              <div><span style="color:var(--text-muted);" id="coupon-info-context-label">{% if prefilled %}{% if prefilled.is_for_vehicle %}Driver:{% else %}Building:{% endif %}{% else %}—{% endif %}</span> <strong id="coupon-info-context">{% if prefilled %}{{ prefilled.asset_context_value }}{% endif %}</strong></div>
               <div><span style="color:var(--text-muted);">Litres:</span> <strong id="coupon-info-litres">{% if prefilled %}{{ prefilled.litres }} L{% endif %}</strong></div>
               <div><span style="color:var(--text-muted);">Value:</span> <strong id="coupon-info-value" style="color:var(--navy);">{% if prefilled %}₦ {{ prefilled.total_value|floatformat:2 }}{% endif %}</strong></div>
             </div>
           </div>
         </div>
 
-        <!-- Actual transaction -->
+        <!-- Fuelling details -->
         <div style="margin-bottom:1.25rem;">
-          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Actual Transaction</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Actual Litres Filled <span class="req">*</span></label>
-              <input type="number" name="actual_litres" step="0.01" min="0.01"
-                class="form-control {% if errors.actual_litres %}field-error{% endif %}"
-                value="{% if actual_litres_val %}{{ actual_litres_val }}{% endif %}"
-                placeholder="Actual litres dispensed">
-              {% if errors.actual_litres %}<div class="error-msg">{{ errors.actual_litres }}</div>{% endif %}
-            </div>
-            <div class="form-group">
-              <label class="form-label">Actual Total Cost (₦) <span class="req">*</span></label>
-              <input type="number" name="actual_cost" step="0.01" min="0.01"
-                class="form-control {% if errors.actual_cost %}field-error{% endif %}"
-                value="{% if actual_cost_val %}{{ actual_cost_val }}{% endif %}"
-                placeholder="Amount paid">
-              {% if errors.actual_cost %}<div class="error-msg">{{ errors.actual_cost }}</div>{% endif %}
-            </div>
-          </div>
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Fuelling Details</div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Date of Fuelling <span class="req">*</span></label>
@@ -118,17 +100,15 @@ document.getElementById('coupon-lookup-btn')?.addEventListener('click', async fu
       infoBox.style.display   = 'none';
     } else {
       errorDiv.textContent    = '';
-      document.getElementById('coupon-info-plate').textContent  = data.plate;
-      document.getElementById('coupon-info-driver').textContent = data.driver;
-      document.getElementById('coupon-info-litres').textContent = data.litres + ' L';
-      document.getElementById('coupon-info-value').textContent  = '₦ ' + parseFloat(data.total_value).toLocaleString('en-NG', {minimumFractionDigits:2});
-      infoBox.style.display   = 'block';
-
-      // Pre-fill actual amounts
-      const litresInput = document.querySelector('input[name="actual_litres"]');
-      const costInput   = document.querySelector('input[name="actual_cost"]');
-      if (litresInput) litresInput.value = data.litres;
-      if (costInput)   costInput.value   = parseFloat(data.total_value).toFixed(2);
+      // Asset-aware labels: vehicle coupons show Vehicle/Driver, generator coupons show Generator/Building
+      const isGen = data.asset_kind === 'generator';
+      document.getElementById('coupon-info-asset-label').textContent   = isGen ? 'Generator:' : 'Vehicle:';
+      document.getElementById('coupon-info-asset').textContent         = data.asset_label || '';
+      document.getElementById('coupon-info-context-label').textContent = isGen ? 'Building:' : 'Driver:';
+      document.getElementById('coupon-info-context').textContent       = data.asset_context || (isGen ? '' : '—');
+      document.getElementById('coupon-info-litres').textContent        = data.litres + ' L';
+      document.getElementById('coupon-info-value').textContent         = '₦ ' + parseFloat(data.total_value).toLocaleString('en-NG', {minimumFractionDigits:2});
+      infoBox.style.display = 'block';
     }
   } catch(e) {
     // Only show network error if we truly couldn't reach the server

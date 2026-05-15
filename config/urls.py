@@ -10,6 +10,7 @@ urlpatterns = [
     path("auth/",        include("accounts.urls")),
     path("dashboard/",   dashboard, name="dashboard"),
     path("vehicles/",    include("vehicles.urls")),
+    path("generators/",  include("generators.urls")),
     path("drivers/",     include("drivers.urls")),
     path("vendors/",     include("vendors.urls")),
     path("coupons/",     include("coupons.urls")),
@@ -17,6 +18,7 @@ urlpatterns = [
     path("maintenance/", include("maintenance.urls")),
     path("reports/",     include("reports.urls")),
     path("audit/",       include("audit.urls")),
+    path("trips/",       include("trips.urls")),
     path("",             lambda req: redirect("dashboard")),
 ]
 

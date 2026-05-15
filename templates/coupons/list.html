@@ -28,7 +28,7 @@
     <form method="get" class="filter-bar">
       <div class="search-wrap">
         <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" name="q" value="{{ q }}" placeholder="Coupon ID, plate, driver..." class="form-control">
+        <input type="text" name="q" value="{{ q }}" placeholder="Coupon ID, plate, generator tag, driver..." class="form-control">
       </div>
       <select name="status" class="form-select" style="width:auto;">
         <option value="">All Statuses</option>
@@ -48,8 +48,8 @@
       <thead>
         <tr>
           <th>Coupon ID</th>
-          <th>Vehicle</th>
-          <th>Driver</th>
+          <th>Asset</th>
+          <th>Driver / Building</th>
           <th>Fuel Station</th>
           <th>Litres</th>
           <th>Total Value</th>
@@ -65,28 +65,55 @@
             <a href="{% url 'coupons:detail' c.pk %}" class="coupon-id fw-600">{{ c.coupon_id }}</a>
           </td>
           <td>
-            <a href="{% url 'vehicles:detail' c.vehicle.pk %}">{{ c.vehicle.plate_number }}</a>
+            {% if c.is_for_vehicle %}
+              <div>
+                <a href="{% url 'vehicles:detail' c.vehicle.pk %}">{{ c.vehicle.plate_number }}</a>
+                <span class="asset-label-text asset-label-vehicle">Vehicle</span>
+              </div>
+            {% elif c.is_for_generator %}
+              <div>
+                <a href="{% url 'generators:detail' c.generator.pk %}">{{ c.generator.tag }}</a>
+                <span class="asset-label-text asset-label-generator">Generator</span>
+              </div>
+            {% endif %}
           </td>
-          <td>{{ c.driver.full_name }}</td>
+          <td>
+            {% if c.is_for_vehicle %}
+              {{ c.driver.full_name|default:"—" }}
+            {% elif c.is_for_generator %}
+              <span style="color:var(--text-muted);">{{ c.generator.building }}</span>
+            {% endif %}
+          </td>
           <td>{{ c.fuel_station.name }}</td>
           <td>{{ c.litres }} L</td>
           <td class="fw-600">₦ {{ c.total_value|floatformat:2 }}</td>
           <td style="color:var(--text-muted);font-size:.78rem;">{{ c.issue_datetime|date:"j M Y H:i" }}</td>
           <td>
-            {% if c.status == "issued" %}
-              <span class="badge badge-amber">Issued</span>
-            {% elif c.status == "redeemed" %}
-              <span class="badge badge-success">Redeemed</span>
-            {% elif c.status == "cancelled" %}
-              <span class="badge badge-danger">Cancelled</span>
-            {% else %}
-              <span class="badge badge-muted">{{ c.get_status_display }}</span>
-            {% endif %}
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:.25rem;">
+              {% if c.status == "pending" %}
+                <span class="badge badge-muted">Pending Approval</span>
+              {% elif c.status == "approved" %}
+                <span class="badge badge-amber">Approved</span>
+              {% elif c.status == "rejected" %}
+                <span class="badge badge-danger">Rejected</span>
+              {% elif c.status == "issued" %}
+                <span class="badge badge-amber">Issued</span>
+              {% elif c.status == "redeemed" %}
+                <span class="badge badge-success">Redeemed</span>
+              {% elif c.status == "cancelled" %}
+                <span class="badge badge-danger">Cancelled</span>
+              {% else %}
+                <span class="badge badge-muted">{{ c.get_status_display }}</span>
+              {% endif %}
+              {% if c.is_self_approved %}
+                <span class="badge badge-amber" title="Approved by the same user who issued it">Self-Approved</span>
+              {% endif %}
+            </div>
           </td>
           <td>
             <div class="d-flex gap-1">
               <a href="{% url 'coupons:detail' c.pk %}" class="btn btn-outline btn-sm">View</a>
-              {% if c.status == "issued" %}
+              {% if c.is_printable %}
               <a href="{% url 'coupons:print_slip' c.pk %}" target="_blank" class="btn btn-outline btn-sm">Print</a>
               {% endif %}
             </div>

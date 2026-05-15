@@ -281,10 +281,12 @@ def dashboard(request):
         issue_datetime__date=today, **fdept
     ).count()
     coupon_value_today = FuelCoupon.objects.filter(
-        issue_datetime__date=today, **fdept
+        issue_datetime__date=today,
+        status__in=FuelCoupon.EXPENSE_STATUSES,
+        **fdept
     ).aggregate(t=Sum("total_value"))["t"] or 0
     open_coupons = FuelCoupon.objects.filter(
-        status=FuelCoupon.STATUS_ISSUED, **fdept
+        status__in=(FuelCoupon.STATUS_APPROVED, FuelCoupon.STATUS_ISSUED), **fdept
     ).count()
 
     month_start = today.replace(day=1)
@@ -515,7 +517,10 @@ def fleet_summary(request):
     total_fuel_litres = fuel_qs.aggregate(t=Sum("actual_litres"))["t"] or 0
     total_maint_cost  = maint_qs.aggregate(t=Sum("total_cost"))["t"] or 0
     total_spend       = total_fuel_cost + total_maint_cost
-    total_coupons     = FuelCoupon.objects.filter(issue_datetime__date__gte=date_from, issue_datetime__date__lte=date_to, **fdept).count()
+    total_coupons     = FuelCoupon.objects.filter(
+        issue_datetime__date__gte=date_from, issue_datetime__date__lte=date_to,
+        **fdept
+    ).exclude(status__in=[FuelCoupon.STATUS_REJECTED, FuelCoupon.STATUS_CANCELLED]).count()
     total_maint_recs  = maint_qs.count()
 
     # By department
@@ -717,7 +722,7 @@ def coupon_report(request):
     ).select_related("vehicle", "driver", "fuel_station", "issued_by").order_by("-issue_datetime")
 
     by_status = {s: coupons.filter(status=s).count() for s, _ in FuelCoupon.STATUS_CHOICES}
-    total_value   = coupons.aggregate(t=Sum("total_value"))["t"] or 0
+    total_value   = coupons.filter(status__in=FuelCoupon.EXPENSE_STATUSES).aggregate(t=Sum("total_value"))["t"] or 0
     redeemed_cost = FuelLog.objects.filter(
         coupon__in=coupons.filter(status=FuelCoupon.STATUS_REDEEMED)
     ).aggregate(t=Sum("actual_cost"))["t"] or 0
@@ -882,6 +887,64 @@ def _vendor_excel(ctx):
     for col, w in zip(["A","B","C","D","E","F","G","H"], [28, 16, 18, 12, 12, 18, 12, 18]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"vendor_report_{df}_{dt}.xlsx")
+
+
+# ── Driver Payments Report ───────────────────────────────────────────────────
+
+@login_required
+def driver_payments(request):
+    """
+    Summary of trip payments per driver in a period.
+    Defaults to current calendar month.
+    """
+    if not request.user.has_module_perm("reports", "read"):
+        return HttpResponseForbidden()
+
+    from trips.models import Trip
+
+    today = date.today()
+    df = request.GET.get("date_from") or today.replace(day=1).isoformat()
+    dt = request.GET.get("date_to")   or today.isoformat()
+    driver_filter = request.GET.get("driver", "")
+    payment_type  = request.GET.get("payment_type", "")
+
+    # Department scoping via vehicle
+    dept_q = {}
+    if not request.user.is_system_admin and request.user.department:
+        dept_q = {"vehicle__department": request.user.department}
+
+    qs = Trip.objects.filter(
+        trip_date__gte=df, trip_date__lte=dt, **dept_q
+    ).select_related("driver", "vehicle")
+
+    if driver_filter:
+        qs = qs.filter(driver_id=driver_filter)
+    if payment_type:
+        qs = qs.filter(driver__payment_type=payment_type)
+
+    # Aggregate by driver
+    summary = (
+        qs.values("driver_id", "driver__full_name", "driver__staff_id", "driver__payment_type")
+          .annotate(trip_count=Count("id"), total_paid=Sum("amount_paid"))
+          .order_by("-total_paid")
+    )
+
+    total_all = qs.aggregate(s=Sum("amount_paid"))["s"] or Decimal("0.00")
+    trip_count_all = qs.count()
+
+    drivers = Driver.objects.order_by("full_name")
+
+    return render(request, "reports/driver_payments.html", {
+        "summary": summary,
+        "trips":   qs.order_by("-trip_date")[:200],  # detail rows for preview
+        "total_all": total_all,
+        "trip_count_all": trip_count_all,
+        "date_from": df, "date_to": dt,
+        "driver_filter": driver_filter,
+        "payment_type_filter": payment_type,
+        "drivers": drivers,
+        "payment_choices": Driver.PAY_CHOICES,
+    })
 
 
 # ── Report Scheduling ────────────────────────────────────────────────────────
@@ -1095,7 +1158,7 @@ def _build_report_instant(schedule, df, dt):
         elif rt == "coupon_report":
             coupons = FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).select_related("vehicle","driver","fuel_station")
             ctx = {"date_from": df, "date_to": dt, "coupons": coupons,
-                   "total_value": coupons.aggregate(t=Sum("total_value"))["t"] or Decimal(0)}
+                   "total_value": coupons.filter(status__in=FuelCoupon.EXPENSE_STATUSES).aggregate(t=Sum("total_value"))["t"] or Decimal(0)}
             resp = _coupon_report_excel(ctx)
         elif rt == "maintenance":
             recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
@@ -1160,7 +1223,7 @@ def _build_report_instant(schedule, df, dt):
         elif rt == "coupon_report":
             coupons = FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).select_related("vehicle","driver","fuel_station")
             ctx.update({"coupons": coupons,
-                        "total_value": coupons.aggregate(t=Sum("total_value"))["t"] or Decimal(0)})
+                        "total_value": coupons.filter(status__in=FuelCoupon.EXPENSE_STATUSES).aggregate(t=Sum("total_value"))["t"] or Decimal(0)})
         elif rt == "maintenance":
             recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
             ctx.update({"records": recs,

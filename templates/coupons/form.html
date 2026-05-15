@@ -20,6 +20,12 @@
 .total-display{background:var(--navy);color:#fff;border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;}
 .total-label{font-size:.8rem;color:rgba(255,255,255,.6);}
 .total-value{font-size:1.6rem;font-weight:700;color:var(--amber-light);font-variant-numeric:tabular-nums;}
+
+.asset-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;}
+.toggle-pill{cursor:pointer;}
+.toggle-pill input{display:none;}
+.toggle-pill span{display:inline-block;padding:.5rem 1rem;border-radius:6px;font-size:.85rem;font-weight:600;color:var(--text-muted);transition:all .15s;}
+.toggle-pill input:checked + span{background:var(--navy);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15);}
 </style>
 {% endblock %}
 
@@ -46,8 +52,26 @@
       <form method="post" novalidate>
         {% csrf_token %}
 
-        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
-          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Vehicle & Driver</div>
+        {# ─── Asset type toggle ─── #}
+        <div style="margin-bottom:1.25rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem;">Issue Coupon For</div>
+          <div class="asset-toggle">
+            <label class="toggle-pill">
+              <input type="radio" name="asset_type" value="vehicle"
+                     {% if default_asset_type != "generator" %}checked{% endif %}>
+              <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:.35rem;"><path d="M3 13h13l3-5a3 3 0 0 0-3-3H7l-4 8z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>Vehicle</span>
+            </label>
+            <label class="toggle-pill">
+              <input type="radio" name="asset_type" value="generator"
+                     {% if default_asset_type == "generator" %}checked{% endif %}>
+              <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:.35rem;"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generator</span>
+            </label>
+          </div>
+        </div>
+
+        {# ─── Vehicle + Driver block ─── #}
+        <div class="asset-block" data-asset-block="vehicle" style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Vehicle &amp; Driver</div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Vehicle <span class="req">*</span></label>
@@ -79,6 +103,35 @@
               </select>
               <div class="form-hint">Select the vehicle first — the default driver will auto-fill. You can override it.</div>
               {% if errors.driver %}<div class="error-msg">{{ errors.driver }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        {# ─── Generator block ─── #}
+        <div class="asset-block" data-asset-block="generator" style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);display:none;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Generator</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Generator <span class="req">*</span></label>
+              <select name="generator" id="id_generator" class="form-select {% if errors.generator %}field-error{% endif %}">
+                <option value="">— Select Generator —</option>
+                {% for g in generators %}
+                <option value="{{ g.pk }}"
+                  data-building="{{ g.building }}"
+                  {% if preselect_generator == g.pk|stringformat:"s" %}selected
+                  {% elif post.generator == g.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ g.tag }} — {{ g.name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if errors.generator %}<div class="error-msg">{{ errors.generator }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Building</label>
+              <input type="text" id="display_building" class="form-control" readonly
+                     placeholder="Auto-filled from generator"
+                     style="background:var(--surface-2);cursor:default;">
+              <div class="form-hint">Auto-filled. Not editable.</div>
             </div>
           </div>
         </div>
@@ -136,7 +189,7 @@
         <div class="d-flex gap-1">
           <button type="submit" class="btn btn-amber">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>
-            Issue Coupon & Print
+            Submit for Approval
           </button>
           <a href="{% url 'coupons:list' %}" class="btn btn-outline">Cancel</a>
         </div>
@@ -154,7 +207,21 @@ $(function() {
 
   $('#id_vehicle').select2({ ...s2, placeholder: '— Select Vehicle —' });
   $('#id_driver').select2({ ...s2, placeholder: '— Select Driver —' });
+  $('#id_generator').select2({ ...s2, placeholder: '— Select Generator —' });
   $('#id_station').select2({ ...s2, placeholder: '— Select Fuel Station —' });
+
+  // Asset type toggle: show/hide vehicle vs generator blocks
+  function applyAssetToggle() {
+    const v = document.querySelector('input[name="asset_type"]:checked');
+    const kind = v ? v.value : 'vehicle';
+    document.querySelectorAll('.asset-block').forEach(el => {
+      el.style.display = (el.dataset.assetBlock === kind) ? '' : 'none';
+    });
+  }
+  document.querySelectorAll('input[name="asset_type"]').forEach(r => {
+    r.addEventListener('change', applyAssetToggle);
+  });
+  applyAssetToggle();
 
   // Auto-fill driver when vehicle changes
   $('#id_vehicle').on('change', function() {
@@ -170,10 +237,20 @@ $(function() {
       if (badge) badge.style.display = 'none';
     }
   });
-
-  // If vehicle already preselected on load, auto-fill driver immediately
   if ($('#id_vehicle').val()) {
     $('#id_vehicle').trigger('change');
+  }
+
+  // Auto-fill building when generator changes
+  $('#id_generator').on('change', function() {
+    const sel = document.getElementById('id_generator');
+    const opt = sel.options[sel.selectedIndex];
+    const building = opt ? opt.getAttribute('data-building') : '';
+    const out = document.getElementById('display_building');
+    if (out) out.value = building || '';
+  });
+  if ($('#id_generator').val()) {
+    $('#id_generator').trigger('change');
   }
 
   // Live total calculation

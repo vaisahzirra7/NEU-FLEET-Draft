@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}Edit{% else %}Register{% endif %} Generator{% endblock %}
+{% block page_title %}{% if obj %}Edit{% else %}Register{% endif %} Generator{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'generators:list' %}">Generators</a>
+  <span class="sep">›</span> {% if obj %}{{ obj.tag }}{% else %}New{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.field-error{border-color:var(--danger,#dc2626) !important;}
+.error-msg{color:var(--danger,#dc2626);font-size:.78rem;margin-top:.2rem;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:780px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon">
+          <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        {% if obj %}Edit Generator{% else %}Register Generator{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {# ─── Identity ─── #}
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Identity</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tag <span class="req">*</span></label>
+              <input type="text" name="tag" class="form-control {% if errors.tag %}field-error{% endif %}"
+                     value="{% if post.tag %}{{ post.tag }}{% elif obj %}{{ obj.tag }}{% endif %}"
+                     placeholder="e.g. GEN-LIB-01" maxlength="30">
+              {% if errors.tag %}<div class="error-msg">{{ errors.tag }}</div>{% endif %}
+              <div class="form-hint">Unique identifier for this generator.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Name <span class="req">*</span></label>
+              <input type="text" name="name" class="form-control {% if errors.name %}field-error{% endif %}"
+                     value="{% if post.name %}{{ post.name }}{% elif obj %}{{ obj.name }}{% endif %}"
+                     placeholder="e.g. Library Main Generator">
+              {% if errors.name %}<div class="error-msg">{{ errors.name }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Make <span class="req">*</span></label>
+              <input type="text" name="make" class="form-control {% if errors.make %}field-error{% endif %}"
+                     value="{% if post.make %}{{ post.make }}{% elif obj %}{{ obj.make }}{% endif %}"
+                     placeholder="e.g. Mikano, Caterpillar">
+              {% if errors.make %}<div class="error-msg">{{ errors.make }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Model</label>
+              <input type="text" name="model" class="form-control"
+                     value="{% if post.model %}{{ post.model }}{% elif obj %}{{ obj.model }}{% endif %}">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Serial Number</label>
+              <input type="text" name="serial_number" class="form-control"
+                     value="{% if post.serial_number %}{{ post.serial_number }}{% elif obj %}{{ obj.serial_number }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Installed Date</label>
+              <input type="date" name="installed_date" class="form-control"
+                     value="{% if obj and obj.installed_date %}{{ obj.installed_date|date:'Y-m-d' }}{% elif post.installed_date %}{{ post.installed_date }}{% endif %}">
+              <div class="form-hint">Optional. When the generator was commissioned.</div>
+            </div>
+          </div>
+        </div>
+
+        {# ─── Specifications ─── #}
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Specifications</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">kVA Rating <span class="req">*</span></label>
+              <input type="number" name="kva_rating" step="0.01" min="0.01"
+                     class="form-control {% if errors.kva_rating %}field-error{% endif %}"
+                     value="{% if post.kva_rating %}{{ post.kva_rating }}{% elif obj %}{{ obj.kva_rating }}{% endif %}"
+                     placeholder="e.g. 250.00">
+              {% if errors.kva_rating %}<div class="error-msg">{{ errors.kva_rating }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fuel Type</label>
+              <select name="fuel_type" class="form-select">
+                {% for val, label in fuel_choices %}
+                <option value="{{ val }}"
+                  {% if obj %}{% if obj.fuel_type == val %}selected{% endif %}{% else %}{% if post.fuel_type == val %}selected{% elif not post.fuel_type and val == "diesel" %}selected{% endif %}{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tank Capacity (Litres)</label>
+              <input type="number" name="tank_capacity_litres" step="0.01" min="0.01"
+                     class="form-control {% if errors.tank_capacity_litres %}field-error{% endif %}"
+                     value="{% if post.tank_capacity_litres %}{{ post.tank_capacity_litres }}{% elif obj %}{{ obj.tank_capacity_litres }}{% endif %}">
+              {% if errors.tank_capacity_litres %}<div class="error-msg">{{ errors.tank_capacity_litres }}</div>{% endif %}
+              <div class="form-hint">Optional. Maximum fuel tank capacity.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                {% for val, label in status_choices %}
+                <option value="{{ val }}"
+                  {% if obj %}{% if obj.status == val %}selected{% endif %}{% else %}{% if post.status == val %}selected{% elif not post.status and val == "active" %}selected{% endif %}{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {# ─── Location ─── #}
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.85rem;">Location</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Building <span class="req">*</span></label>
+              <input type="text" name="building"
+                     class="form-control {% if errors.building %}field-error{% endif %}"
+                     value="{% if post.building %}{{ post.building }}{% elif obj %}{{ obj.building }}{% endif %}"
+                     placeholder="e.g. Library, Senate Block, Faculty of Engineering"
+                     maxlength="150">
+              {% if errors.building %}<div class="error-msg">{{ errors.building }}</div>{% endif %}
+              <div class="form-hint">Type the building this generator serves.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Location Note</label>
+              <input type="text" name="location_note" class="form-control"
+                     value="{% if post.location_note %}{{ post.location_note }}{% elif obj %}{{ obj.location_note }}{% endif %}"
+                     placeholder="e.g. Ground floor utility room">
+              <div class="form-hint">Optional. More specific location detail.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.9rem;">
+            <input type="checkbox" name="needs_monthly_fuel"
+                   {% if obj %}{% if obj.needs_monthly_fuel %}checked{% endif %}{% else %}{% if post.needs_monthly_fuel == "on" %}checked{% endif %}{% endif %}>
+            Needs monthly fuel allocation
+          </label>
+          <div class="form-hint">Tick if this generator should appear in monthly-fuel reminders.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" rows="3" class="form-control"
+                    placeholder="Any additional remarks...">{% if post.notes %}{{ post.notes }}{% elif obj %}{{ obj.notes }}{% endif %}</textarea>
+        </div>
+
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn btn-primary">{% if obj %}Save Changes{% else %}Register Generator{% endif %}</button>
+          <a href="{% if obj %}{% url 'generators:detail' obj.pk %}{% else %}{% url 'generators:list' %}{% endif %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Decommission Generator{% endblock %}
+{% block page_title %}Decommission Generator{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'generators:list' %}">Generators</a>
+  <span class="sep">›</span> <a href="{% url 'generators:detail' gen.pk %}">{{ gen.tag }}</a>
+  <span class="sep">›</span> Decommission
+{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;">
+  <div class="card">
+    <div class="card-body">
+      <h2 style="margin:0 0 1rem 0;font-size:1.05rem;color:var(--danger);">Decommission this generator?</h2>
+      <p style="color:var(--text-muted);font-size:.9rem;line-height:1.6;">
+        This will mark <strong>{{ gen.tag }} — {{ gen.name }}</strong> as <strong>Inactive</strong>. It will no longer appear in dropdowns for issuing coupons or logging maintenance, but historical records (fuel coupons, maintenance entries) are preserved.
+      </p>
+      <p style="color:var(--text-muted);font-size:.9rem;">
+        You can re-activate later by editing the generator and changing the status back to Active.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn" style="background:var(--danger);color:white;">Yes, Decommission</button>
+          <a href="{% url 'generators:detail' gen.pk %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

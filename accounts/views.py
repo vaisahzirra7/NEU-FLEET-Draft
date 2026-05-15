@@ -297,15 +297,19 @@ def _build_perm_rows(modules, role=None):
     if role:
         perms_map = {p.module: p for p in role.permissions.all()}
     rows = []
+    # Modules where the "approve" permission is meaningful (currently coupons only).
+    APPROVE_MODULES = {"coupons"}
     for key, label in modules:
         p = perms_map.get(key)
         rows.append({
-            "key":       key,
-            "label":     label,
-            "can_read":   p.can_read   if p else False,
-            "can_write":  p.can_write  if p else False,
-            "can_edit":   p.can_edit   if p else False,
-            "can_delete": p.can_delete if p else False,
+            "key":         key,
+            "label":       label,
+            "can_read":    p.can_read    if p else False,
+            "can_write":   p.can_write   if p else False,
+            "can_edit":    p.can_edit    if p else False,
+            "can_delete":  p.can_delete  if p else False,
+            "can_approve": p.can_approve if p else False,
+            "supports_approve": key in APPROVE_MODULES,
         })
     return rows
 
@@ -462,15 +466,17 @@ def role_create(request):
 
         # Save permissions for each module
         for module_key, _ in modules:
-            can_read   = f"perm_{module_key}_read"   in request.POST
-            can_write  = f"perm_{module_key}_write"  in request.POST
-            can_edit   = f"perm_{module_key}_edit"   in request.POST
-            can_delete = f"perm_{module_key}_delete" in request.POST
-            if can_read or can_write or can_edit or can_delete:
+            can_read    = f"perm_{module_key}_read"    in request.POST
+            can_write   = f"perm_{module_key}_write"   in request.POST
+            can_edit    = f"perm_{module_key}_edit"    in request.POST
+            can_delete  = f"perm_{module_key}_delete"  in request.POST
+            can_approve = f"perm_{module_key}_approve" in request.POST
+            if can_read or can_write or can_edit or can_delete or can_approve:
                 RoleModulePermission.objects.create(
                     role=role, module=module_key,
                     can_read=can_read, can_write=can_write,
                     can_edit=can_edit, can_delete=can_delete,
+                    can_approve=can_approve,
                 )
 
         messages.success(request, f"Role '{role.name}' created.")
@@ -501,15 +507,17 @@ def role_edit(request, pk):
         # Rebuild permissions
         role.permissions.all().delete()
         for module_key, _ in modules:
-            can_read   = f"perm_{module_key}_read"   in request.POST
-            can_write  = f"perm_{module_key}_write"  in request.POST
-            can_edit   = f"perm_{module_key}_edit"   in request.POST
-            can_delete = f"perm_{module_key}_delete" in request.POST
-            if can_read or can_write or can_edit or can_delete:
+            can_read    = f"perm_{module_key}_read"    in request.POST
+            can_write   = f"perm_{module_key}_write"   in request.POST
+            can_edit    = f"perm_{module_key}_edit"    in request.POST
+            can_delete  = f"perm_{module_key}_delete"  in request.POST
+            can_approve = f"perm_{module_key}_approve" in request.POST
+            if can_read or can_write or can_edit or can_delete or can_approve:
                 RoleModulePermission.objects.create(
                     role=role, module=module_key,
                     can_read=can_read, can_write=can_write,
                     can_edit=can_edit, can_delete=can_delete,
+                    can_approve=can_approve,
                 )
 
         messages.success(request, f"Role '{role.name}' updated.")

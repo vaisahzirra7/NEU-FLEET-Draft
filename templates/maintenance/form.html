@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{% if obj %}Edit{% else %}Add{% endif %} Maintenance Record{% endblock %}
-{% block page_title %}{% if obj %}Edit Record{% else %}Log Maintenance{% endif %}{% endblock %}
+{% block title %}Log Maintenance Record{% endblock %}
+{% block page_title %}Log Maintenance{% endblock %}
 {% block breadcrumb %}
   <span class="sep">›</span> <a href="{% url 'maintenance:list' %}">Maintenance</a>
-  <span class="sep">›</span> {% if obj %}Edit{% else %}Add{% endif %}
+  <span class="sep">›</span> Add
 {% endblock %}
 
 {% block extra_css %}
@@ -16,24 +16,56 @@
 .select2-dropdown{border:1px solid var(--border-dark);border-radius:var(--radius);font-family:var(--font);font-size:.84rem;}
 .select2-container--default .select2-results__option--highlighted[aria-selected]{background-color:var(--navy);}
 .select2-search--dropdown .select2-search__field{border:1px solid var(--border-dark);border-radius:var(--radius);padding:.4rem .7rem;font-family:var(--font);font-size:.84rem;}
+
+/* Line items table */
+.items-table { width:100%; border-collapse:collapse; }
+.items-table th { text-align:left; font-size:.78rem; color:var(--text-muted); font-weight:600; padding:.4rem .5rem; text-transform:uppercase; letter-spacing:.02em; }
+.items-table td { padding:.4rem .5rem; vertical-align:top; }
+.items-table td.col-action { width:38px; text-align:center; }
+.items-table .col-type { width:30%; }
+.items-table .col-desc { width:auto; }
+.items-table .col-cost { width:140px; }
+.items-table .row-error { color:var(--danger,#dc2626); font-size:.72rem; margin-top:.2rem; }
+.btn-remove-item { background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:.4rem; border-radius:4px; font-size:1.1rem; line-height:1; }
+.btn-remove-item:hover { background:rgba(220,38,38,.1); color:var(--danger,#dc2626); }
+.items-total { display:flex; justify-content:space-between; align-items:center; padding:.85rem 1rem; background:var(--surface-2); border-top:2px solid var(--border); margin-top:.5rem; border-radius:6px; }
+.items-total .label { font-size:.85rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+.items-total .value { font-size:1.15rem; font-weight:700; color:var(--text); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="max-width:680px;">
+<div style="max-width:880px;">
   <div class="card">
     <div class="card-header">
       <div class="card-title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        {% if obj %}Edit Record — {{ obj.vehicle.plate_number }}{% else %}Log Maintenance Record{% endif %}
+        Log Maintenance Record
       </div>
     </div>
     <div class="card-body">
-      <form method="post" novalidate>
+      <form method="post" novalidate id="maintForm">
         {% csrf_token %}
 
-        <div class="form-row">
-          {% if not obj %}
+        {# ─── Asset type toggle ─── #}
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">Maintenance For</div>
+          <div class="asset-toggle">
+            <label class="toggle-pill">
+              <input type="radio" name="asset_type" value="vehicle"
+                     {% if default_asset_type != "generator" %}checked{% endif %}>
+              <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.35rem;"><path d="M3 13h13l3-5a3 3 0 0 0-3-3H7l-4 8z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>Vehicle</span>
+            </label>
+            <label class="toggle-pill">
+              <input type="radio" name="asset_type" value="generator"
+                     {% if default_asset_type == "generator" %}checked{% endif %}>
+              <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.35rem;"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generator</span>
+            </label>
+          </div>
+        </div>
+
+        {# ─── Vehicle block ─── #}
+        <div class="asset-block" data-asset-block="vehicle">
           <div class="form-group">
             <label class="form-label">Vehicle <span class="req">*</span></label>
             <select name="vehicle" id="id_vehicle" class="form-select {% if errors.vehicle %}field-error{% endif %}">
@@ -48,60 +80,141 @@
             </select>
             {% if errors.vehicle %}<div class="error-msg">{{ errors.vehicle }}</div>{% endif %}
           </div>
-          {% else %}
-          <div class="form-group">
-            <label class="form-label">Vehicle</label>
-            <input type="text" class="form-control" value="{{ obj.vehicle.plate_number }} — {{ obj.vehicle.make }} {{ obj.vehicle.model }}" readonly style="background:var(--surface-2);color:var(--text-muted);">
+        </div>
+
+        {# ─── Generator block ─── #}
+        <div class="asset-block" data-asset-block="generator" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Generator <span class="req">*</span></label>
+              <select name="generator" id="id_generator" class="form-select {% if errors.generator %}field-error{% endif %}">
+                <option value="">— Select Generator —</option>
+                {% for g in generators %}
+                <option value="{{ g.pk }}"
+                  data-building="{{ g.building }}"
+                  {% if preselect_generator == g.pk|stringformat:"s" %}selected
+                  {% elif post.generator == g.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ g.tag }} — {{ g.name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if errors.generator %}<div class="error-msg">{{ errors.generator }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Building</label>
+              <input type="text" id="display_building" class="form-control" readonly
+                     placeholder="Auto-filled from generator"
+                     style="background:var(--surface-2);cursor:default;">
+              <div class="form-hint">Auto-filled.</div>
+            </div>
           </div>
-          {% endif %}
+        </div>
+
+        {# ─── Date row (shared) ─── #}
+        <div class="form-row">
           <div class="form-group">
             <label class="form-label">Date of Service <span class="req">*</span></label>
             <input type="date" name="service_date"
               class="form-control {% if errors.service_date %}field-error{% endif %}"
-              value="{% if obj %}{{ obj.service_date|date:'Y-m-d' }}{% else %}{{ post.service_date|default:'' }}{% endif %}">
+              value="{{ post.service_date|default:'' }}">
             {% if errors.service_date %}<div class="error-msg">{{ errors.service_date }}</div>{% endif %}
           </div>
+          <div class="form-group"></div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Service Type <span class="req">*</span></label>
-            <select name="service_type" class="form-select {% if errors.service_type %}field-error{% endif %}">
-              <option value="">— Select —</option>
-              {% for val, label in service_choices %}
-              <option value="{{ val }}"
-                {% if obj.service_type == val %}selected
-                {% elif post.service_type == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-            {% if errors.service_type %}<div class="error-msg">{{ errors.service_type }}</div>{% endif %}
+        {# ─── Line items ─── #}
+        <div style="margin-top:1.5rem; padding-top:1.25rem; border-top:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:.6rem;">
+            <div>
+              <label class="form-label" style="margin-bottom:.1rem;">Work Done <span class="req">*</span></label>
+              <div class="form-hint" style="margin:0;">Add one row per service performed. Costs are summed automatically.</div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Total Cost (₦) <span class="req">*</span></label>
-            <input type="number" name="total_cost" step="0.01" min="0"
-              class="form-control {% if errors.total_cost %}field-error{% endif %}"
-              value="{% if obj %}{{ obj.total_cost }}{% else %}{{ post.total_cost|default:'' }}{% endif %}"
-              placeholder="Amount paid">
-            {% if errors.total_cost %}<div class="error-msg">{{ errors.total_cost }}</div>{% endif %}
+          {% if errors.items %}<div class="error-msg" style="margin-bottom:.6rem;">{{ errors.items }}</div>{% endif %}
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th class="col-type">Service Type</th>
+                <th class="col-desc">Description</th>
+                <th class="col-cost">Cost (₦)</th>
+                <th class="col-action"></th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody">
+              {% if submitted_rows %}
+                {% for stype, sdesc, scost, rerr in submitted_rows %}
+                <tr class="item-row">
+                  <td class="col-type">
+                    <select name="item_service_type" class="form-select item-type {% if rerr.service_type %}field-error{% endif %}">
+                      <option value="">— Select —</option>
+                      {% for val, label, applies in service_choices %}
+                      <option value="{{ val }}" data-applies="{{ applies }}" {% if stype == val %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    {% if rerr.service_type %}<div class="row-error">{{ rerr.service_type }}</div>{% endif %}
+                  </td>
+                  <td class="col-desc">
+                    <input type="text" name="item_description" class="form-control item-desc {% if rerr.description %}field-error{% endif %}"
+                      value="{{ sdesc }}" placeholder="e.g. Replaced front brake pads">
+                    {% if rerr.description %}<div class="row-error">{{ rerr.description }}</div>{% endif %}
+                  </td>
+                  <td class="col-cost">
+                    <input type="number" name="item_cost" step="0.01" min="0" class="form-control item-cost {% if rerr.cost %}field-error{% endif %}"
+                      value="{{ scost }}" placeholder="0.00">
+                    {% if rerr.cost %}<div class="row-error">{{ rerr.cost }}</div>{% endif %}
+                  </td>
+                  <td class="col-action">
+                    <button type="button" class="btn-remove-item" title="Remove this row">×</button>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                {# one blank starter row #}
+                <tr class="item-row">
+                  <td class="col-type">
+                    <select name="item_service_type" class="form-select item-type">
+                      <option value="">— Select —</option>
+                      {% for val, label, applies in service_choices %}
+                      <option value="{{ val }}" data-applies="{{ applies }}">{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td class="col-desc">
+                    <input type="text" name="item_description" class="form-control item-desc"
+                      placeholder="e.g. Replaced front brake pads">
+                  </td>
+                  <td class="col-cost">
+                    <input type="number" name="item_cost" step="0.01" min="0" class="form-control item-cost" placeholder="0.00">
+                  </td>
+                  <td class="col-action">
+                    <button type="button" class="btn-remove-item" title="Remove this row">×</button>
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+
+          <div style="margin-top:.5rem;">
+            <button type="button" id="addItemBtn" class="btn btn-outline btn-sm">
+              <span style="font-size:1.05rem; line-height:1;">+</span> Add another item
+            </button>
+          </div>
+
+          <div class="items-total">
+            <span class="label">Total</span>
+            <span class="value" id="liveTotal">₦ 0.00</span>
           </div>
         </div>
+        {# ─── /Line items ─── #}
 
-        <div class="form-group">
-          <label class="form-label">Description <span class="req">*</span></label>
-          <textarea name="description" class="form-control {% if errors.description %}field-error{% endif %}" rows="3"
-            placeholder="What was done — be specific (e.g. 'Replaced front brake pads and rotors')">{% if obj %}{{ obj.description }}{% else %}{{ post.description|default:'' }}{% endif %}</textarea>
-          {% if errors.description %}<div class="error-msg">{{ errors.description }}</div>{% endif %}
-        </div>
-
-        <div class="form-row">
+        <div class="form-row" style="margin-top:1.25rem;">
           <div class="form-group">
             <label class="form-label">Vendor / Mechanic</label>
             <select name="vendor" id="id_vendor" class="form-select">
               <option value="">— Select from register —</option>
               {% for v in vendors %}
-              <option value="{{ v.pk }}"
-                {% if obj.vendor_id == v.pk %}selected
-                {% elif post.vendor == v.pk|stringformat:"s" %}selected{% endif %}>
+              <option value="{{ v.pk }}" {% if post.vendor == v.pk|stringformat:"s" %}selected{% endif %}>
                 {{ v.name }} ({{ v.get_type_display }})
               </option>
               {% endfor %}
@@ -111,7 +224,7 @@
           <div class="form-group">
             <label class="form-label">External / One-off Vendor</label>
             <input type="text" name="vendor_other" class="form-control"
-              value="{% if obj %}{{ obj.vendor_other }}{% else %}{{ post.vendor_other|default:'' }}{% endif %}"
+              value="{{ post.vendor_other|default:'' }}"
               placeholder="Name of external mechanic">
             <div class="form-hint">Only fill if not in the vendor register.</div>
           </div>
@@ -121,35 +234,62 @@
           <div class="form-group">
             <label class="form-label">Next Service Date</label>
             <input type="date" name="next_service_date" class="form-control"
-              value="{% if obj %}{{ obj.next_service_date|date:'Y-m-d'|default:'' }}{% else %}{{ post.next_service_date|default:'' }}{% endif %}">
+              value="{{ post.next_service_date|default:'' }}">
             <div class="form-hint">Leave blank if not applicable.</div>
           </div>
           <div class="form-group">
             <label class="form-label">Approved By <span class="req">*</span></label>
             <input type="text" name="approved_by"
               class="form-control {% if errors.approved_by %}field-error{% endif %}"
-              value="{% if obj %}{{ obj.approved_by }}{% else %}{{ post.approved_by|default:'' }}{% endif %}"
+              value="{{ post.approved_by|default:'' }}"
               placeholder="Name or designation of approver">
             {% if errors.approved_by %}<div class="error-msg">{{ errors.approved_by }}</div>{% endif %}
           </div>
         </div>
 
         <div class="form-group">
+          <label class="form-label">Overall Summary <span style="color:var(--text-muted); font-weight:400;">(optional)</span></label>
+          <textarea name="description" class="form-control" rows="2"
+            placeholder="High-level summary of this repair (optional — line items above carry the detail)">{{ post.description|default:'' }}</textarea>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Notes</label>
           <textarea name="notes" class="form-control" rows="2"
-            placeholder="Any additional observations...">{% if obj %}{{ obj.notes }}{% else %}{{ post.notes|default:'' }}{% endif %}</textarea>
+            placeholder="Any additional observations...">{{ post.notes|default:'' }}</textarea>
         </div>
 
         <div class="d-flex gap-1 mt-2">
-          <button type="submit" class="btn btn-primary">
-            {% if obj %}Save Changes{% else %}Save Record{% endif %}
-          </button>
-          <a href="{% if obj %}{% url 'vehicles:detail' obj.vehicle.pk %}{% else %}{% url 'maintenance:list' %}{% endif %}" class="btn btn-outline">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save Record</button>
+          <a href="{% url 'maintenance:list' %}" class="btn btn-outline">Cancel</a>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+{# ─── Row template for JS clone ─── #}
+<template id="rowTemplate">
+  <tr class="item-row">
+    <td class="col-type">
+      <select name="item_service_type" class="form-select item-type">
+        <option value="">— Select —</option>
+        {% for val, label, applies in service_choices %}
+        <option value="{{ val }}" data-applies="{{ applies }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="col-desc">
+      <input type="text" name="item_description" class="form-control item-desc" placeholder="e.g. Replaced front brake pads">
+    </td>
+    <td class="col-cost">
+      <input type="number" name="item_cost" step="0.01" min="0" class="form-control item-cost" placeholder="0.00">
+    </td>
+    <td class="col-action">
+      <button type="button" class="btn-remove-item" title="Remove this row">×</button>
+    </td>
+  </tr>
+</template>
 {% endblock %}
 
 {% block extra_js %}
@@ -157,7 +297,117 @@
 <script>
 $(function() {
   $('#id_vehicle').select2({ width:'100%', placeholder:'— Select Vehicle —' });
+  $('#id_generator').select2({ width:'100%', placeholder:'— Select Generator —' });
   $('#id_vendor').select2({ width:'100%', placeholder:'— Select from register —', allowClear:true });
+
+  // Currently-selected asset type
+  function currentAssetKind() {
+    const v = document.querySelector('input[name="asset_type"]:checked');
+    return v ? v.value : 'vehicle';
+  }
+
+  // Hide service-type options that don't apply to the current asset kind.
+  // If a currently-selected value becomes invalid (e.g. user picked Tyre then
+  // switched to Generator), clear it so the user notices and re-picks.
+  // Exposed on window so the line-item add handler can call it on new rows.
+  function filterServiceTypeOptions(selectEl) {
+    const kind = currentAssetKind();
+    let selectedNowHidden = false;
+    selectEl.querySelectorAll('option').forEach(opt => {
+      if (!opt.value) return; // skip the "— Select —" placeholder
+      const applies = (opt.dataset.applies || '').split(',');
+      const ok = applies.includes(kind);
+      opt.hidden   = !ok;
+      opt.disabled = !ok;
+      if (!ok && opt.selected) {
+        opt.selected = false;
+        selectedNowHidden = true;
+      }
+    });
+    if (selectedNowHidden) selectEl.value = '';
+  }
+  window.filterServiceTypeOptions = filterServiceTypeOptions;
+
+  function filterAllServiceTypes() {
+    document.querySelectorAll('select.item-type').forEach(filterServiceTypeOptions);
+  }
+
+  // Asset toggle: show/hide vehicle vs generator blocks + filter service types
+  function applyAssetToggle() {
+    const kind = currentAssetKind();
+    document.querySelectorAll('.asset-block').forEach(el => {
+      el.style.display = (el.dataset.assetBlock === kind) ? '' : 'none';
+    });
+    filterAllServiceTypes();
+  }
+  document.querySelectorAll('input[name="asset_type"]').forEach(r => {
+    r.addEventListener('change', applyAssetToggle);
+  });
+  applyAssetToggle();
+
+  // Auto-fill building when generator changes
+  $('#id_generator').on('change', function() {
+    const sel = document.getElementById('id_generator');
+    const opt = sel.options[sel.selectedIndex];
+    const building = opt ? opt.getAttribute('data-building') : '';
+    const out = document.getElementById('display_building');
+    if (out) out.value = building || '';
+  });
+  if ($('#id_generator').val()) {
+    $('#id_generator').trigger('change');
+  }
 });
+
+(function() {
+  const tbody       = document.getElementById('itemsBody');
+  const tpl         = document.getElementById('rowTemplate');
+  const addBtn      = document.getElementById('addItemBtn');
+  const liveTotalEl = document.getElementById('liveTotal');
+
+  function fmtNaira(n) {
+    return "₦ " + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function recalcTotal() {
+    let total = 0;
+    tbody.querySelectorAll('.item-cost').forEach(input => {
+      const v = parseFloat(input.value);
+      if (!isNaN(v) && v >= 0) total += v;
+    });
+    liveTotalEl.textContent = fmtNaira(total);
+  }
+
+  function bindRow(row) {
+    row.querySelector('.btn-remove-item')?.addEventListener('click', () => {
+      // Don't allow removing the last row — clear it instead so submission still works
+      if (tbody.querySelectorAll('.item-row').length === 1) {
+        row.querySelectorAll('input, select').forEach(el => { el.value = ''; });
+      } else {
+        row.remove();
+      }
+      recalcTotal();
+    });
+    row.querySelector('.item-cost')?.addEventListener('input', recalcTotal);
+  }
+
+  // Bind existing rows on page load
+  tbody.querySelectorAll('.item-row').forEach(bindRow);
+
+  addBtn.addEventListener('click', () => {
+    const clone = tpl.content.firstElementChild.cloneNode(true);
+    tbody.appendChild(clone);
+    bindRow(clone);
+    // Apply asset-type filter to the newly-cloned dropdown so it doesn't
+    // momentarily show vehicle-only types when the user is on Generator.
+    const newSelect = clone.querySelector('.item-type');
+    if (newSelect && typeof window.filterServiceTypeOptions === 'function') {
+      window.filterServiceTypeOptions(newSelect);
+    }
+    newSelect?.focus();
+  });
+
+  // Initial total (matters if the form was re-rendered with POST values)
+  recalcTotal();
+})();
 </script>
 {% endblock %}

@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     # Project apps — All modules here
     'accounts',
     'vehicles',
+    'generators',
     'drivers',
     'vendors',
     'coupons',
@@ -34,6 +35,7 @@ INSTALLED_APPS = [
     'maintenance',
     'reports',
     'audit',
+    'trips',
 ]
 
 MIDDLEWARE = [

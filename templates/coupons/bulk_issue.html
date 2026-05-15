@@ -6,217 +6,277 @@
   <span class="sep">›</span> Bulk Issue
 {% endblock %}
 
+{% block extra_css %}
+<style>
+.bulk-summary{background:var(--navy);color:#fff;border-radius:var(--radius);padding:.85rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;}
+.bulk-summary .count{font-size:1.4rem;font-weight:700;color:var(--amber-light);}
+.bulk-summary .label{font-size:.8rem;color:rgba(255,255,255,.6);}
+
+.asset-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;margin-bottom:1rem;}
+.toggle-pill{cursor:pointer;}
+.toggle-pill input{display:none;}
+.toggle-pill span{display:inline-block;padding:.5rem 1rem;border-radius:6px;font-size:.85rem;font-weight:600;color:var(--text-muted);}
+.toggle-pill input:checked + span{background:var(--navy);color:#fff;}
+
+.search-row{margin-bottom:.5rem;}
+.assets-table{font-size:.85rem;}
+.assets-table input[type=number]{height:32px;font-size:.82rem;}
+.assets-table select{height:32px;font-size:.8rem;}
+.assets-table tr.disabled{opacity:.5;}
+</style>
+{% endblock %}
+
 {% block content %}
-<form method="post" novalidate id="bulkForm">
-{% csrf_token %}
-
-<div class="page-header">
-  <div class="page-header-left">
-    <h1>Bulk Issue Coupons</h1>
-    <p>Select vehicles, set litres per vehicle, and issue all coupons at once</p>
-  </div>
-  <div class="d-flex gap-1">
-    <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Issue Selected Coupons</button>
-    <a href="{% url 'coupons:list' %}" class="btn btn-outline">Cancel</a>
-  </div>
-</div>
-
-<!-- Common Settings -->
-<div class="card" style="margin-bottom:1.25rem;">
-  <div class="card-header"><div class="card-title">Common Settings</div></div>
-  <div class="card-body">
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
-      <div class="form-group" style="margin:0;">
-        <label class="form-label">Fuel Station <span class="req">*</span></label>
-        <select name="fuel_station" class="form-select {% if errors.fuel_station %}field-error{% endif %}" required>
-          <option value="">— Select Station —</option>
-          {% for s in fuel_stations %}
-          <option value="{{ s.pk }}" {% if post.fuel_station == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.fuel_station %}<div class="error-msg">{{ errors.fuel_station }}</div>{% endif %}
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label class="form-label">Cost per Litre (₦) <span class="req">*</span></label>
-        <input type="number" name="cost_per_litre" id="costPerLitre"
-          class="form-control {% if errors.cost_per_litre %}field-error{% endif %}"
-          step="0.01" min="0.01" placeholder="e.g. 1450"
-          value="{{ post.cost_per_litre|default:'' }}">
-        {% if errors.cost_per_litre %}<div class="error-msg">{{ errors.cost_per_litre }}</div>{% endif %}
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label class="form-label">Expiry Date <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
-        <input type="date" name="expiry_date" class="form-control" value="{{ post.expiry_date|default:'' }}">
+<div style="max-width:1100px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Bulk Issue Fuel Coupons
       </div>
     </div>
-    {% if errors.vehicles %}<div class="error-msg" style="margin-top:.75rem;">{{ errors.vehicles }}</div>{% endif %}
-  </div>
-</div>
+    <div class="card-body">
 
-<!-- Grand Total Card — hidden until vehicles are selected -->
-<div id="grandTotalCard" style="display:none;margin-bottom:1.25rem;">
-  <div class="card" style="border-left:3px solid var(--navy);">
-    <div class="card-body" style="padding:.85rem 1.25rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
-        <div style="display:flex;gap:2.5rem;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem;">Vehicles</div>
-            <div id="grandVehicles" style="font-size:1.5rem;font-weight:800;color:var(--navy);">0</div>
-          </div>
-          <div>
-            <div style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem;">Total Litres</div>
-            <div id="grandLitres" style="font-size:1.5rem;font-weight:800;color:var(--navy);">0.00 L</div>
-          </div>
-          <div>
-            <div style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem;">Grand Total Value</div>
-            <div id="grandTotal" style="font-size:1.5rem;font-weight:800;color:var(--navy);">₦ 0.00</div>
+      <form method="post" novalidate id="bulkForm">
+        {% csrf_token %}
+
+        {# ─── Asset type toggle ─── #}
+        <div>
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">Issue Coupons For</div>
+          <div class="asset-toggle">
+            <label class="toggle-pill">
+              <input type="radio" name="asset_type" value="vehicle"
+                     {% if default_asset_type != "generator" %}checked{% endif %}>
+              <span>Vehicles</span>
+            </label>
+            <label class="toggle-pill">
+              <input type="radio" name="asset_type" value="generator"
+                     {% if default_asset_type == "generator" %}checked{% endif %}>
+              <span>Generators</span>
+            </label>
           </div>
         </div>
-        <div style="font-size:.78rem;color:var(--text-muted);">
-          Rate: ₦<span id="rateDisplay">—</span>/litre
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- Vehicle Selection Table -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">Select Vehicles</div>
-    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-      <input type="text" id="vehicleSearch" placeholder="Search plate, model, dept..."
-        style="height:32px;padding:0 .75rem;border:1.5px solid var(--border-dark);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);outline:none;width:220px;"
-        oninput="filterVehicles(this.value)">
-      <span id="selectedCount" style="font-size:.82rem;color:var(--text-muted);white-space:nowrap;">0 selected</span>
-      <button type="button" class="btn btn-outline btn-sm" onclick="selectAll(true)">Select All</button>
-      <button type="button" class="btn btn-outline btn-sm" onclick="selectAll(false)">Clear</button>
-    </div>
-  </div>
-  <div class="table-wrapper">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th style="width:40px;"><input type="checkbox" id="checkAll" onchange="selectAll(this.checked)" style="width:16px;height:16px;"></th>
-          <th>Plate No.</th>
-          <th>Make & Model</th>
-          <th>Department</th>
-          <th>Default Driver</th>
-          <th style="width:130px;">Litres <span class="req">*</span></th>
-          <th style="width:180px;">Driver Override</th>
-          <th style="width:120px;text-align:right;">Est. Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for v in vehicles %}
-        <tr id="row_{{ v.pk }}" class="vehicle-row"
-          data-plate="{{ v.plate_number|lower }}"
-          data-model="{{ v.make|lower }} {{ v.model|lower }}"
-          data-dept="{{ v.department.name|lower }}"
-          style="opacity:.45;transition:opacity .15s;">
-          <td><input type="checkbox" name="vehicle_ids" value="{{ v.pk }}" class="vehicle-check" style="width:16px;height:16px;" onchange="toggleRow(this)"></td>
-          <td class="fw-600">{{ v.plate_number }}</td>
-          <td style="font-size:.83rem;">{{ v.make }} {{ v.model }}</td>
-          <td style="font-size:.82rem;color:var(--text-muted);">{{ v.department.name }}</td>
-          <td style="font-size:.82rem;">{{ v.default_driver.full_name|default:"—" }}</td>
-          <td>
-            <input type="number" name="litres_{{ v.pk }}" class="form-control litres-input"
-              step="0.01" min="0.01" placeholder="0.00"
-              style="height:32px;font-size:.83rem;"
-              oninput="updateTotal('{{ v.pk }}')" disabled>
-          </td>
-          <td>
-            <select name="driver_{{ v.pk }}" class="form-select" style="height:32px;font-size:.8rem;" disabled>
-              <option value="">{{ v.default_driver.full_name|default:"— No driver —" }}</option>
-              {% for d in drivers %}
-              <option value="{{ d.pk }}" {% if v.default_driver_id == d.pk %}selected{% endif %}>{{ d.full_name }}</option>
+        {# ─── Shared fields ─── #}
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label class="form-label">Fuel Station <span class="req">*</span></label>
+            <select name="fuel_station" class="form-select {% if errors.fuel_station %}field-error{% endif %}">
+              <option value="">— Select Fuel Station —</option>
+              {% for s in fuel_stations %}
+              <option value="{{ s.pk }}" {% if post.fuel_station == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
               {% endfor %}
             </select>
-          </td>
-          <td style="font-size:.83rem;color:var(--text-muted);text-align:right;white-space:nowrap;" id="total_{{ v.pk }}">—</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🚗</span><div class="empty-title">No active vehicles</div></div></td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div id="noResults" style="display:none;text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem;">No vehicles match your search.</div>
+            {% if errors.fuel_station %}<div class="error-msg">{{ errors.fuel_station }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cost per Litre (₦) <span class="req">*</span></label>
+            <input type="number" name="cost_per_litre" id="bulk_cost" step="0.01" min="0.01"
+              class="form-control {% if errors.cost_per_litre %}field-error{% endif %}"
+              value="{% if post.cost_per_litre %}{{ post.cost_per_litre }}{% endif %}" placeholder="e.g. 850.00">
+            {% if errors.cost_per_litre %}<div class="error-msg">{{ errors.cost_per_litre }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiry Date</label>
+            <input type="date" name="expiry_date" class="form-control"
+              value="{% if post.expiry_date %}{{ post.expiry_date }}{% endif %}">
+            <div class="form-hint">Optional. Applied to all.</div>
+          </div>
+        </div>
+
+        <div class="bulk-summary">
+          <div>
+            <div class="label">Selected</div>
+            <div><span class="count" id="bulk-count">0</span> <span style="font-size:.85rem;color:rgba(255,255,255,.7);" id="bulk-count-label">assets</span></div>
+          </div>
+          <div style="text-align:right;">
+            <div class="label">Combined Total</div>
+            <div class="count" id="bulk-total">₦ 0.00</div>
+          </div>
+        </div>
+
+        {% if errors.assets %}<div class="error-msg" style="margin-bottom:.5rem;">{{ errors.assets }}</div>{% endif %}
+
+        {# ─── VEHICLES TABLE ─── #}
+        <div class="asset-block" data-asset-block="vehicle">
+          <div class="search-row">
+            <input type="text" id="vehicleSearch" class="form-control" placeholder="Search vehicles by plate, make, or model..." style="max-width:380px;">
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table assets-table">
+              <thead>
+                <tr>
+                  <th style="width:36px;"><input type="checkbox" id="selectAllVehicles" style="width:14px;height:14px;"></th>
+                  <th>Plate</th>
+                  <th>Make / Model</th>
+                  <th>Default Driver</th>
+                  <th style="width:120px;">Litres</th>
+                  <th>Driver (override)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for v in vehicles %}
+                <tr id="row_v_{{ v.pk }}" class="vehicle-row"
+                    data-search="{{ v.plate_number|lower }} {{ v.make|lower }} {{ v.model|lower }}">
+                  <td><input type="checkbox" name="vehicle_ids" value="{{ v.pk }}" class="vehicle-check" style="width:16px;height:16px;"></td>
+                  <td><strong>{{ v.plate_number }}</strong></td>
+                  <td>{{ v.make }} {{ v.model }}</td>
+                  <td style="font-size:.82rem;">{{ v.default_driver.full_name|default:"—" }}</td>
+                  <td>
+                    <input type="number" name="litres_{{ v.pk }}" step="0.01" min="0.01"
+                           class="form-control bulk-litres"
+                           disabled
+                           data-asset-kind="vehicle">
+                  </td>
+                  <td>
+                    <select name="driver_{{ v.pk }}" class="form-select" disabled>
+                      <option value="">{{ v.default_driver.full_name|default:"— No driver —" }}</option>
+                      {% for d in drivers %}
+                      <option value="{{ d.pk }}" {% if v.default_driver_id == d.pk %}selected{% endif %}>{{ d.full_name }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted" style="text-align:center;padding:1.5rem;">No active vehicles.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {# ─── GENERATORS TABLE ─── #}
+        <div class="asset-block" data-asset-block="generator" style="display:none;">
+          <div class="search-row">
+            <input type="text" id="generatorSearch" class="form-control" placeholder="Search generators by tag, name, or building..." style="max-width:380px;">
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table assets-table">
+              <thead>
+                <tr>
+                  <th style="width:36px;"><input type="checkbox" id="selectAllGenerators" style="width:14px;height:14px;"></th>
+                  <th>Tag</th>
+                  <th>Name</th>
+                  <th>Building</th>
+                  <th>kVA</th>
+                  <th style="width:120px;">Litres</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for g in generators %}
+                <tr id="row_g_{{ g.pk }}" class="generator-row"
+                    data-search="{{ g.tag|lower }} {{ g.name|lower }} {{ g.building|lower }}">
+                  <td><input type="checkbox" name="generator_ids" value="{{ g.pk }}" class="generator-check" style="width:16px;height:16px;"></td>
+                  <td><strong>{{ g.tag }}</strong></td>
+                  <td>{{ g.name }}</td>
+                  <td style="font-size:.82rem;">{{ g.building }}</td>
+                  <td>{{ g.kva_rating }}</td>
+                  <td>
+                    <input type="number" name="litres_gen_{{ g.pk }}" step="0.01" min="0.01"
+                           class="form-control bulk-litres" disabled
+                           data-asset-kind="generator">
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted" style="text-align:center;padding:1.5rem;">No active generators.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="d-flex gap-1 mt-2">
+          <button type="submit" class="btn btn-primary">Submit Selected for Approval</button>
+          <a href="{% url 'coupons:list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
+{% endblock %}
 
-</form>
-
+{% block extra_js %}
 <script>
-let costPerLitre = 0;
-
-document.getElementById('costPerLitre').addEventListener('input', function() {
-  costPerLitre = parseFloat(this.value) || 0;
-  document.getElementById('rateDisplay').textContent = costPerLitre.toLocaleString('en-NG');
-  document.querySelectorAll('.vehicle-check:checked').forEach(cb => updateTotal(cb.value));
-  updateGrandTotal();
-});
-
-function toggleRow(cb) {
-  const row   = document.getElementById('row_' + cb.value);
-  const litres = row.querySelector('.litres-input');
-  const driver = row.querySelector('select');
-  row.style.opacity = cb.checked ? '1' : '.45';
-  litres.disabled = !cb.checked;
-  driver.disabled = !cb.checked;
-  if (!cb.checked) { litres.value = ''; document.getElementById('total_' + cb.value).textContent = '—'; }
-  else { litres.focus(); updateTotal(cb.value); }
-  updateCount();
-  updateGrandTotal();
-}
-
-function updateTotal(vid) {
-  const inp   = document.querySelector(`input[name="litres_${vid}"]`);
-  const cell  = document.getElementById('total_' + vid);
-  const litres = parseFloat(inp?.value) || 0;
-  const total  = litres * costPerLitre;
-  cell.textContent = total > 0 ? '₦ ' + total.toLocaleString('en-NG', {minimumFractionDigits:2}) : '—';
-  updateGrandTotal();
-}
-
-function updateGrandTotal() {
-  let vCount = 0, litresSum = 0, valueSum = 0;
-  document.querySelectorAll('.vehicle-check:checked').forEach(cb => {
-    vCount++;
-    const l = parseFloat(document.querySelector(`input[name="litres_${cb.value}"]`)?.value) || 0;
-    litresSum += l;
-    valueSum  += l * costPerLitre;
-  });
-  const card = document.getElementById('grandTotalCard');
-  card.style.display = vCount > 0 ? 'block' : 'none';
-  if (vCount > 0) {
-    document.getElementById('grandVehicles').textContent = vCount;
-    document.getElementById('grandLitres').textContent  = litresSum.toFixed(2) + ' L';
-    document.getElementById('grandTotal').textContent   = '₦ ' + valueSum.toLocaleString('en-NG', {minimumFractionDigits:2});
+(function () {
+  function applyAssetToggle() {
+    const v = document.querySelector('input[name="asset_type"]:checked');
+    const kind = v ? v.value : 'vehicle';
+    document.querySelectorAll('.asset-block').forEach(el => {
+      el.style.display = (el.dataset.assetBlock === kind) ? '' : 'none';
+    });
+    document.getElementById('bulk-count-label').textContent =
+      kind === 'generator' ? 'generators' : 'vehicles';
+    updateSummary();
   }
-}
 
-function selectAll(checked) {
-  document.querySelectorAll('.vehicle-row:not([style*="display: none"]) .vehicle-check').forEach(cb => {
-    if (cb.checked !== checked) { cb.checked = checked; toggleRow(cb); }
+  function toggleRowEnable(cb) {
+    const tr = cb.closest('tr');
+    tr.classList.toggle('disabled', !cb.checked);
+    tr.querySelectorAll('input[type=number], select').forEach(el => {
+      el.disabled = !cb.checked;
+    });
+    if (!cb.checked) {
+      tr.querySelectorAll('input[type=number]').forEach(el => el.value = '');
+    }
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const checked = document.querySelector('input[name="asset_type"]:checked');
+    const kind = checked ? checked.value : 'vehicle';
+    const cost = parseFloat(document.getElementById('bulk_cost').value) || 0;
+    const selector = kind === 'generator' ? '.generator-check' : '.vehicle-check';
+    const cbs = document.querySelectorAll(selector + ':checked');
+    document.getElementById('bulk-count').textContent = cbs.length;
+    let total = 0;
+    cbs.forEach(cb => {
+      const litresInput = cb.closest('tr').querySelector('input[type=number]');
+      const l = parseFloat(litresInput.value) || 0;
+      total += l * cost;
+    });
+    document.getElementById('bulk-total').textContent =
+      '₦ ' + total.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  // Toggle wires
+  document.querySelectorAll('input[name="asset_type"]').forEach(r => {
+    r.addEventListener('change', applyAssetToggle);
   });
-  document.getElementById('checkAll').checked = checked;
-}
+  applyAssetToggle();
 
-function updateCount() {
-  const n = document.querySelectorAll('.vehicle-check:checked').length;
-  document.getElementById('selectedCount').textContent = n + ' selected';
-  document.getElementById('submitBtn').disabled = n === 0;
-}
-
-function filterVehicles(q) {
-  q = q.toLowerCase().trim();
-  let visible = 0;
-  document.querySelectorAll('.vehicle-row').forEach(row => {
-    const match = !q || row.dataset.plate.includes(q) || row.dataset.model.includes(q) || row.dataset.dept.includes(q);
-    row.style.display = match ? '' : 'none';
-    if (match) visible++;
+  // Per-row checkbox
+  document.querySelectorAll('.vehicle-check, .generator-check').forEach(cb => {
+    cb.addEventListener('change', () => toggleRowEnable(cb));
   });
-  document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
-}
+
+  // Select-all
+  document.getElementById('selectAllVehicles').addEventListener('change', e => {
+    document.querySelectorAll('.vehicle-row:not([style*="display: none"]) .vehicle-check').forEach(cb => {
+      cb.checked = e.target.checked;
+      toggleRowEnable(cb);
+    });
+  });
+  document.getElementById('selectAllGenerators').addEventListener('change', e => {
+    document.querySelectorAll('.generator-row:not([style*="display: none"]) .generator-check').forEach(cb => {
+      cb.checked = e.target.checked;
+      toggleRowEnable(cb);
+    });
+  });
+
+  // Live total recompute
+  document.getElementById('bulk_cost').addEventListener('input', updateSummary);
+  document.querySelectorAll('.bulk-litres').forEach(el => el.addEventListener('input', updateSummary));
+
+  // Filter rows
+  function filterRows(searchId, rowClass) {
+    const q = (document.getElementById(searchId).value || '').toLowerCase().trim();
+    document.querySelectorAll('.' + rowClass).forEach(row => {
+      const hay = row.dataset.search || '';
+      row.style.display = (!q || hay.includes(q)) ? '' : 'none';
+    });
+  }
+  document.getElementById('vehicleSearch').addEventListener('input', () => filterRows('vehicleSearch', 'vehicle-row'));
+  document.getElementById('generatorSearch').addEventListener('input', () => filterRows('generatorSearch', 'generator-row'));
+})();
 </script>
 {% endblock %}
