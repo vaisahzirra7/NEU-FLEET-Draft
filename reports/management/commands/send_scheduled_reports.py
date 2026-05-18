@@ -308,8 +308,10 @@ class Command(BaseCommand):
         from fuel_logs.models import FuelLog
         from maintenance.models import MaintenanceRecord
         from django.db.models import Sum
-        logs  = FuelLog.objects.filter(fuel_date__range=[df,dt]).select_related("vehicle","driver","coupon")
-        recs  = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
+        # select_related includes generator so PDF templates can render either
+        # asset kind without a DB hit per row. Same for maintenance.
+        logs  = FuelLog.objects.filter(fuel_date__range=[df,dt]).select_related("vehicle","driver","generator","coupon")
+        recs  = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","generator","vendor").prefetch_related("items")
         return {
             "date_from": df, "date_to": dt,
             "fuel_logs": logs, "maint_records": recs,
@@ -320,7 +322,7 @@ class Command(BaseCommand):
     def _coupon_ctx(self, df, dt):
         from coupons.models import FuelCoupon
         from django.db.models import Sum
-        coupons = FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).select_related("vehicle","driver","fuel_station")
+        coupons = FuelCoupon.objects.filter(issue_datetime__date__range=[df,dt]).select_related("vehicle","driver","generator","fuel_station")
         return {
             "date_from": df, "date_to": dt,
             "coupons": coupons,
@@ -330,7 +332,7 @@ class Command(BaseCommand):
     def _maint_ctx(self, df, dt):
         from maintenance.models import MaintenanceRecord
         from django.db.models import Sum
-        recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","vendor")
+        recs = MaintenanceRecord.objects.filter(service_date__range=[df,dt]).select_related("vehicle","generator","vendor").prefetch_related("items")
         return {
             "date_from": df, "date_to": dt,
             "records": recs,

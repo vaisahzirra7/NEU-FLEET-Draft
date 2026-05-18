@@ -178,6 +178,25 @@ class MaintenanceRecord(models.Model):
         # Bypass MaintenanceItem.save's recursion by going straight to super
         super().save(update_fields=["total_cost", "service_type", "updated_at"])
 
+    @property
+    def items_summary(self):
+        """
+        Human-readable summary of the work in this record.
+
+        Multi-item records: join each line item's description with ' · '.
+        If the joined string ends up empty (items exist but all descriptions
+        are blank — shouldn't happen but be defensive), fall back to the
+        record-level description.
+
+        Legacy single-record / no-items records: return record-level description.
+
+        Used by report listings (maintenance history, monthly expense).
+        """
+        descs = [i.description.strip() for i in self.items.all() if (i.description or "").strip()]
+        if descs:
+            return " · ".join(descs)
+        return self.description or ""
+
 
 class MaintenanceItem(models.Model):
     """

@@ -15,7 +15,7 @@
 <table class="report-table">
   <thead>
     <tr>
-      <th>Date</th><th>Coupon ID</th><th>Vehicle</th><th>Driver</th>
+      <th>Date</th><th>Coupon ID</th><th>Asset</th><th>Driver / Building</th>
       <th class="r">Litres</th><th class="r">Cost (&#8358;)</th>
     </tr>
   </thead>
@@ -24,8 +24,8 @@
     <tr>
       <td>{{ l.fuel_date|date:"d/m/Y" }}</td>
       <td class="mono bold">{{ l.coupon.coupon_id }}</td>
-      <td class="bold">{{ l.vehicle.plate_number }}</td>
-      <td>{{ l.driver.full_name }}</td>
+      <td class="bold">{% if l.is_for_vehicle %}{{ l.vehicle.plate_number }} <span style="font-size:9px;color:#0d6a9e;font-weight:normal;">(V)</span>{% else %}{{ l.generator.tag }} <span style="font-size:9px;color:#a06010;font-weight:normal;">(G)</span>{% endif %}</td>
+      <td>{% if l.is_for_vehicle %}{{ l.driver.full_name|default:"—" }}{% else %}<span class="muted">{{ l.generator.building }}</span>{% endif %}</td>
       <td class="r">{{ l.actual_litres }} L</td>
       <td class="r navy">{{ l.actual_cost|floatformat:2 }}</td>
     </tr>
@@ -42,7 +42,7 @@
 <table class="report-table">
   <thead>
     <tr>
-      <th>Date</th><th>Vehicle</th><th>Service Type</th><th>Vendor</th>
+      <th>Date</th><th>Asset</th><th>Service Type</th><th>Vendor</th>
       <th class="r">Cost (&#8358;)</th><th>Approved By</th>
     </tr>
   </thead>
@@ -50,7 +50,7 @@
     {% for r in maint_records %}
     <tr>
       <td>{{ r.service_date|date:"d/m/Y" }}</td>
-      <td class="bold">{{ r.vehicle.plate_number }}</td>
+      <td class="bold">{% if r.is_for_vehicle %}{{ r.vehicle.plate_number }} <span style="font-size:9px;color:#0d6a9e;font-weight:normal;">(V)</span>{% else %}{{ r.generator.tag }} <span style="font-size:9px;color:#a06010;font-weight:normal;">(G)</span>{% endif %}</td>
       <td><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
       <td>{{ r.effective_vendor_name }}</td>
       <td class="r navy">{{ r.total_cost|floatformat:2 }}</td>

@@ -120,7 +120,13 @@
       <div class="stat-value">₦ {{ stats.monthly_spend|floatformat:0 }}</div>
       <div class="stat-label">Spend This Month</div>
       <div class="stat-sub">
-        {% if can_see_coupons and can_see_maintenance %}Fuel + Maintenance{% elif can_see_coupons %}Fuel only{% else %}Maintenance only{% endif %}
+        {% if stats.monthly_spend_gen %}
+          <span style="color:var(--info);">V: ₦{{ stats.monthly_spend_veh|floatformat:0 }}</span>
+          &nbsp;·&nbsp;
+          <span style="color:#a06010;">G: ₦{{ stats.monthly_spend_gen|floatformat:0 }}</span>
+        {% else %}
+          {% if can_see_coupons and can_see_maintenance %}Fuel + Maintenance{% elif can_see_coupons %}Fuel only{% else %}Maintenance only{% endif %}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -132,6 +138,16 @@
       <div class="stat-value">{{ stats.active_vehicles }}</div>
       <div class="stat-label">Active Vehicles</div>
       <div class="stat-sub">{{ stats.total_vehicles }} total in fleet</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if can_see_generators %}
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(245,158,11,.12);color:#a06010;"><i class="fa-solid fa-bolt"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ stats.active_generators }}</div>
+      <div class="stat-label">Active Generators</div>
+      <div class="stat-sub">{{ stats.total_generators }} total in fleet</div>
     </div>
   </div>
   {% endif %}
@@ -272,19 +288,30 @@
         <div class="card-title"><i class="fa-solid fa-wrench card-icon"></i> Service Due Soon</div>
       </div>
       <div class="card-body" style="padding:0 1.25rem;">
-        {% for v in service_due %}
+        {% for rec in service_due %}
         <div class="alert-panel-item">
           <div class="alert-dot" style="background:var(--warning)"></div>
           <div style="flex:1">
-            <div class="fw-600" style="font-size:.83rem;">{{ v.plate_number }}</div>
-            <div style="font-size:.75rem;color:var(--text-muted);">{{ v.make }} {{ v.model }}</div>
+            {% if rec.is_for_vehicle %}
+              <div class="fw-600" style="font-size:.83rem;">
+                {{ rec.vehicle.plate_number }}
+                <span class="asset-label-text asset-label-vehicle" style="display:inline-block;margin-left:.35rem;">Vehicle</span>
+              </div>
+              <div style="font-size:.75rem;color:var(--text-muted);">{{ rec.vehicle.make }} {{ rec.vehicle.model }}</div>
+            {% else %}
+              <div class="fw-600" style="font-size:.83rem;">
+                {{ rec.generator.tag }}
+                <span class="asset-label-text asset-label-generator" style="display:inline-block;margin-left:.35rem;">Generator</span>
+              </div>
+              <div style="font-size:.75rem;color:var(--text-muted);">{{ rec.generator.name }}</div>
+            {% endif %}
           </div>
-          <div style="font-size:.75rem;color:var(--warning);font-weight:600;">{{ v.next_service_date }}</div>
+          <div style="font-size:.75rem;color:var(--warning);font-weight:600;">{{ rec.next_service_date }}</div>
         </div>
         {% empty %}
         <div class="empty-state" style="padding:1.5rem;">
           <span class="empty-icon">✅</span>
-          <div class="empty-sub">No vehicles due for service</div>
+          <div class="empty-sub">No assets due for service</div>
         </div>
         {% endfor %}
       </div>

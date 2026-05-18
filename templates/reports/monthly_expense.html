@@ -3,30 +3,78 @@
 {% block page_title %}Monthly Expense Report{% endblock %}
 {% block breadcrumb %}<span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a> <span class="sep">›</span> Monthly Expense{% endblock %}
 
+{% block extra_css %}
+<style>
+.breakdown-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;}
+.breakdown-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.85rem 1rem;}
+.breakdown-card .lbl{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:.25rem;}
+.breakdown-card .val{font-size:1.15rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+.breakdown-card.veh-fuel  .lbl{color:var(--info);}
+.breakdown-card.veh-maint .lbl{color:var(--info);}
+.breakdown-card.gen-fuel  .lbl{color:#a06010;}
+.breakdown-card.gen-maint .lbl{color:#a06010;}
+@media (max-width:780px){.breakdown-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div class="page-header-left"><h1>Monthly Expense Report</h1><p>{{ date_from|date:"j M Y" }} — {{ date_to|date:"j M Y" }}</p></div>
 </div>
 {% include "reports/_filter_bar.html" %}
 
-<div class="stat-grid" style="margin-bottom:1.25rem;">
-  <div class="stat-card"><div class="stat-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 22V8l5-4 5 4v14"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_fuel|floatformat:2 }}</div><div class="stat-label">Fuel Spend</div><div class="stat-sub">{{ fuel_logs|length }} transactions</div></div></div>
-  <div class="stat-card"><div class="stat-icon info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_maint|floatformat:2 }}</div><div class="stat-label">Maintenance Spend</div><div class="stat-sub">{{ maint_records|length }} records</div></div></div>
+{# ─── Combined totals (3 stat cards, unchanged) ─── #}
+<div class="stat-grid" style="margin-bottom:1rem;">
+  <div class="stat-card"><div class="stat-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 22V8l5-4 5 4v14"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_fuel|floatformat:2 }}</div><div class="stat-label">Fuel Spend (Total)</div><div class="stat-sub">{{ fuel_logs|length }} transactions</div></div></div>
+  <div class="stat-card"><div class="stat-icon info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_maint|floatformat:2 }}</div><div class="stat-label">Maintenance Spend (Total)</div><div class="stat-sub">{{ maint_records|length }} records</div></div></div>
   <div class="stat-card"><div class="stat-icon navy"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-body"><div class="stat-value">₦ {{ total_spend|floatformat:2 }}</div><div class="stat-label">Total Spend</div></div></div>
 </div>
 
+{# ─── Asset breakdown (4 small cards) ─── #}
+<div class="breakdown-grid">
+  <div class="breakdown-card veh-fuel"><div class="lbl">Vehicle · Fuel</div><div class="val">₦ {{ veh_fuel|floatformat:2 }}</div></div>
+  <div class="breakdown-card veh-maint"><div class="lbl">Vehicle · Maintenance</div><div class="val">₦ {{ veh_maint|floatformat:2 }}</div></div>
+  <div class="breakdown-card gen-fuel"><div class="lbl">Generator · Fuel</div><div class="val">₦ {{ gen_fuel|floatformat:2 }}</div></div>
+  <div class="breakdown-card gen-maint"><div class="lbl">Generator · Maintenance</div><div class="val">₦ {{ gen_maint|floatformat:2 }}</div></div>
+</div>
+
+{# ─── 4-line chart ─── #}
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header"><div class="card-title">Monthly Breakdown</div></div>
+  <div class="card-body">
+    <canvas id="monthlyChart" height="100"></canvas>
+  </div>
+</div>
+
+{# ─── Fuel transactions table ─── #}
 <div class="card" style="margin-bottom:1.25rem;">
   <div class="card-header"><div class="card-title">Fuel Transactions</div></div>
   <div class="table-wrapper">
     <table class="data-table">
-      <thead><tr><th>Date</th><th>Coupon ID</th><th>Vehicle</th><th>Driver</th><th>Station</th><th>Litres</th><th>Cost</th></tr></thead>
+      <thead><tr><th>Date</th><th>Coupon ID</th><th>Asset</th><th>Driver / Building</th><th>Station</th><th>Litres</th><th>Cost</th></tr></thead>
       <tbody>
         {% for log in fuel_logs %}
         <tr>
           <td>{{ log.fuel_date|date:"j M Y" }}</td>
           <td><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
-          <td><a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a></td>
-          <td>{{ log.driver.full_name }}</td>
+          <td>
+            {% if log.is_for_vehicle %}
+              <div>
+                <a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a>
+                <span class="asset-label-text asset-label-vehicle">Vehicle</span>
+              </div>
+            {% else %}
+              <div>
+                <a href="{% url 'generators:detail' log.generator.pk %}">{{ log.generator.tag }}</a>
+                <span class="asset-label-text asset-label-generator">Generator</span>
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if log.is_for_vehicle %}{{ log.driver.full_name|default:"—" }}
+            {% else %}<span style="color:var(--text-muted);">{{ log.generator.building }}</span>
+            {% endif %}
+          </td>
           <td>{{ log.fuel_station.name|default:"—" }}</td>
           <td>{{ log.actual_litres }} L</td>
           <td class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
@@ -39,16 +87,29 @@
   </div>
 </div>
 
+{# ─── Maintenance records table ─── #}
 <div class="card">
   <div class="card-header"><div class="card-title">Maintenance Records</div></div>
   <div class="table-wrapper">
     <table class="data-table">
-      <thead><tr><th>Date</th><th>Vehicle</th><th>Type</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
+      <thead><tr><th>Date</th><th>Asset</th><th>Type</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
       <tbody>
         {% for rec in maint_records %}
         <tr>
           <td>{{ rec.service_date|date:"j M Y" }}</td>
-          <td><a href="{% url 'vehicles:detail' rec.vehicle.pk %}">{{ rec.vehicle.plate_number }}</a></td>
+          <td>
+            {% if rec.is_for_vehicle %}
+              <div>
+                <a href="{% url 'vehicles:detail' rec.vehicle.pk %}">{{ rec.vehicle.plate_number }}</a>
+                <span class="asset-label-text asset-label-vehicle">Vehicle</span>
+              </div>
+            {% else %}
+              <div>
+                <a href="{% url 'generators:detail' rec.generator.pk %}">{{ rec.generator.tag }}</a>
+                <span class="asset-label-text asset-label-generator">Generator</span>
+              </div>
+            {% endif %}
+          </td>
           <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
           <td>{{ rec.effective_vendor_name }}</td>
           <td class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
@@ -61,4 +122,51 @@
     </table>
   </div>
 </div>
+
+{{ chart_data_json|json_script:"chartData" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function() {
+  const raw = JSON.parse(document.getElementById('chartData').textContent);
+  const ctx = document.getElementById('monthlyChart');
+  if (!ctx || !raw.labels.length) return;
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: raw.labels,
+      datasets: [
+        { label: 'Vehicle · Fuel',         data: raw.veh_fuel,  borderColor: '#0d6a9e', backgroundColor: 'rgba(13,106,158,.10)', tension: 0.25, borderWidth: 2 },
+        { label: 'Vehicle · Maintenance',  data: raw.veh_maint, borderColor: '#1a3260', backgroundColor: 'rgba(26,50,96,.10)',  tension: 0.25, borderWidth: 2, borderDash: [6, 4] },
+        { label: 'Generator · Fuel',       data: raw.gen_fuel,  borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.12)', tension: 0.25, borderWidth: 2 },
+        { label: 'Generator · Maintenance',data: raw.gen_maint, borderColor: '#a06010', backgroundColor: 'rgba(160,96,16,.10)', tension: 0.25, borderWidth: 2, borderDash: [6, 4] },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const v = ctx.parsed.y;
+              return ctx.dataset.label + ': ₦ ' + v.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => '₦ ' + v.toLocaleString('en-NG') }
+        }
+      }
+    }
+  });
+})();
+</script>
 {% endblock %}

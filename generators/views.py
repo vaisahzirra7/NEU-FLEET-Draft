@@ -54,8 +54,27 @@ def detail_view(request, pk):
     if not request.user.has_module_perm("generators", "read"):
         return HttpResponseForbidden()
     gen = get_object_or_404(Generator, pk=pk)
+
+    # Recent fuel coupons (latest 10) and maintenance history (latest 10)
+    from coupons.models import FuelCoupon
+    from fuel_logs.models import FuelLog
+    from maintenance.models import MaintenanceRecord
+    recent_coupons = (
+        FuelCoupon.objects.filter(generator=gen)
+        .select_related("fuel_station", "issued_by")
+        .order_by("-issue_datetime")[:10]
+    )
+    recent_maint = (
+        MaintenanceRecord.objects.filter(generator=gen)
+        .select_related("vendor")
+        .prefetch_related("items")
+        .order_by("-service_date")[:10]
+    )
+
     return render(request, "generators/detail.html", {
         "gen": gen,
+        "recent_coupons": recent_coupons,
+        "recent_maint":   recent_maint,
         "can_edit":   request.user.has_module_perm("generators", "edit"),
         "can_delete": request.user.has_module_perm("generators", "delete"),
     })

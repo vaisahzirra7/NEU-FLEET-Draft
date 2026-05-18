@@ -1,152 +1,79 @@
 ================================================================================
-   Gen-3: Maintenance accepts Generators
+   Dashboard — Generator Support
 ================================================================================
 
-This drop wires generators into the maintenance lifecycle. Mirrors Gen-2 for
-coupons, but simpler — maintenance has no driver field, no approval workflow.
-
-The Stage 3 multi-line item structure stays intact; only the parent record
-changes.
+Two files. Bug fixes + UI additions.
 
 --------------------------------------------------------------------------------
-APPLY (do not skip the cache wipe)
+APPLY
 --------------------------------------------------------------------------------
 
-1. Stop runserver (Ctrl+C).
+1. Stop runserver.
+2. Expand-Archive -Path .\dashboard_fix.zip -DestinationPath . -Force
+3. Get-ChildItem -Path . -Recurse -Filter "__pycache__" -Directory | Remove-Item -Recurse -Force
+4. python manage.py runserver
+5. Hard-refresh browser
 
-2. From project root:
-     Expand-Archive -Path .\gen3.zip -DestinationPath . -Force
-
-3. Wipe Python caches:
-     Get-ChildItem -Path . -Recurse -Filter "__pycache__" -Directory | Remove-Item -Recurse -Force
-
-4. Apply the migration:
-     python manage.py migrate
-
-   You should see exactly one new migration applied:
-     Applying maintenance.0004_maintenance_generator_support... OK
-
-5. Hard-refresh the browser to pick up the updated CSS (Ctrl+Shift+R).
-
-6. Start the server:
-     python manage.py runserver
+No migrations.
 
 --------------------------------------------------------------------------------
-WHAT CHANGED — MODEL & DB
+BUGS FIXED (data correctness)
 --------------------------------------------------------------------------------
 
-MaintenanceRecord
-  * vehicle is now nullable
-  * NEW: generator FK (nullable)
-  * NEW constraint: exactly one of vehicle/generator must be set
-  * NEW helpers: is_for_vehicle, is_for_generator, asset, asset_label, asset_kind
-  * __str__ uses asset_label safely (won't crash on generator records)
+  * Coupons Issued Today, Open Coupons: were excluding generator coupons for
+    non-admin (dept-scoped) users. Now use the same Q-pattern widening as
+    coupons/views.py — vehicle records stay dept-scoped, generator records
+    are organisation-wide.
 
-Service-type choices (both MaintenanceRecord and MaintenanceItem)
-  * NEW option: "General Service" (value: general_service)
-  * Existing categories unchanged. Use general_service for generator service
-    or anything that doesn't fit the more specific categories.
+  * Spend This Month: same fix. Was silently dropping generator fuel +
+    generator maintenance for dept-scoped users. As Super Admin you saw
+    the correct combined number; non-admins did not.
 
-MaintenanceItem — no model changes (the line-item structure stays the same).
-
---------------------------------------------------------------------------------
-WHAT CHANGED — UI
---------------------------------------------------------------------------------
-
-Log Maintenance form
-  * NEW asset toggle at the top: Vehicle / Generator
-  * Vehicle path: existing vehicle dropdown (unchanged)
-  * Generator path: generator dropdown + read-only Building field
-    (auto-filled from selected generator)
-  * Service date moved out of the asset row so it's shared by both modes
-  * Line items table unchanged — same multi-row workflow
-
-Maintenance list
-  * "Vehicle" column renamed to "Asset"
-  * Each row shows a tinted vehicle/generator pill before the plate/tag link
-  * Search now matches generator tag and name
-  * Page subtitle updated to "vehicle and generator service / repair history"
-
-Maintenance detail
-  * Header and breadcrumb show the asset label (plate OR tag)
-  * Info table shows Vehicle row for vehicle records, Generator + Building
-    rows for generator records
-  * "Back to Vehicle" / "Back to Generator" button routes appropriately
-
-main.css
-  * Asset-toggle CSS moved from per-template inline blocks to global rules
-    (.asset-toggle, .toggle-pill). This means it now works on the maintenance
-    form without copying styles in.
-  * Old per-template inline copies still exist in the coupon templates but
-    are redundant (last definition wins; no conflict).
+  * Service Due Soon: was using {% v.plate_number %} on MaintenanceRecord
+    objects. This would have crashed the moment a vehicle had a
+    next_service_date set. Either no one ever set one or the empty-state
+    saved you. Either way, fixed — now asset-aware.
 
 --------------------------------------------------------------------------------
-PERMISSIONS / SCOPING
+NEW UI
 --------------------------------------------------------------------------------
 
-maintenance/dept_filter was rewritten as a Q-object filter (same pattern as
-coupons and fuel_logs in Gen-2):
+  * Active Generators KPI card next to Active Vehicles. Amber bolt icon.
+    Shown when user has generators:read permission.
 
-  - Vehicle maintenance records: still scoped to user's department via
-    vehicle.department FK.
-  - Generator maintenance records: NOT department-scoped. Any user with
-    maintenance read permission sees all generator maintenance records.
+  * Spend This Month subtitle now shows asset breakdown when there's
+    generator spend in the month:
+        V: ₦95,000 · G: ₦12,000
+    instead of "Fuel + Maintenance". Vehicle figure in blue, generator
+    figure in amber, matching the asset-label palette.
 
-Consistent with Gen-1/Gen-2 decisions that generators are organisation-wide.
-
---------------------------------------------------------------------------------
-WHAT GEN-3 DOES NOT TOUCH
---------------------------------------------------------------------------------
-
-  * Reports — generator spending report and monthly-expense update is Gen-4.
-    The existing maintenance report will silently exclude generator records
-    until Gen-4. Vehicle-only totals are still accurate.
-  * Vendor report breakdowns by asset type — Gen-4.
-  * Coupons, fuel logs, trips, generators app — unchanged.
+  * Service Due Soon: each row shows a Vehicle / Generator label below the
+    plate/tag (same label-below pattern as the list pages). Empty state
+    text changed from "No vehicles due for service" to "No assets due for
+    service."
 
 --------------------------------------------------------------------------------
-KNOWN FLAGS
+NOT INCLUDED (intentional)
 --------------------------------------------------------------------------------
 
-1. Maintenance records are immutable (no edit view). This was a Stage 3
-   decision and Gen-3 preserves it. If you log a maintenance record for the
-   wrong asset (e.g. picked vehicle when it should have been generator), the
-   only fix today is through the Django admin or DB. Tell me if that's
-   unworkable and we'll add an edit view later.
+  * "Monthly fuel reminders" panel: still vehicle-only. Generators with
+    needs_monthly_fuel=True don't surface here. Asked you about this
+    before; you didn't say yes, so I left it. Tell me if you want it.
 
-2. The "general_service" choice is now available everywhere, including for
-   existing vehicle maintenance forms. That's fine — it just means vehicle
-   users have one more option in the dropdown. No data migration needed for
-   existing records.
+  * "Top 5 by Cost (This Month)": stays vehicle-only. Generators have
+    their own breakdown via the Per-Generator Spending report. Adding
+    a parallel "Top Generators" panel feels like clutter when there are
+    only 2-3 of them.
 
-3. The vehicle filter URL param (?vehicle=...) on the list page still works
-   but only filters vehicle records. There's no equivalent ?generator=...
-   param yet. Easy to add if needed.
+--------------------------------------------------------------------------------
+KNOWN BEHAVIOR — FLEET SUMMARY EMAIL
+--------------------------------------------------------------------------------
 
-4. The maintenance/dashboard "service due soon" alert (next_service_date
-   within 14 days) currently looks across both asset types. Generator
-   records with next_service_date set will appear in that alert too. If you
-   want generator service alerts surfaced separately on the Generators page,
-   that's a follow-up.
-
-================================================================================
-TEST SEQUENCE
-================================================================================
-
-  1. Open /maintenance/new/ — toggle defaults to Vehicle, existing flow works.
-  2. Click Generator toggle — fields swap. Pick a generator; Building
-     auto-fills (read-only).
-  3. Add 2-3 line items including one with service_type "General Service".
-     Submit. Should redirect to that generator's detail page (in the
-     generators module, NOT vehicles).
-  4. Browse to /maintenance/ — the new record should appear with an amber
-     "GENERATOR" pill. Search by the generator's tag — should find it.
-  5. Click the row — detail page should show Generator and Building rows,
-     not Vehicle.
-  6. Log another vehicle maintenance record to confirm the vehicle path
-     still works.
-  7. (Constraint check) Try to log without picking an asset (toggle defaults
-     to vehicle but leave the dropdown empty) — should show field-level
-     error, not a database crash.
+The Fleet Summary email schedules still group spend by department.
+Generators have no department so they don't appear in dept rows BUT do
+count in grand totals — meaning the dept-breakdown rows won't sum to the
+grand total when generator activity exists. I asked you about adding a
+synthetic "Generators (org-wide)" row to that table earlier and didn't
+get a decision. Tell me yes or no and I'll do it in 5 minutes.
 
 ================================================================================

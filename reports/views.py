@@ -19,6 +19,7 @@ from coupons.models import FuelCoupon
 from fuel_logs.models import FuelLog
 from maintenance.models import MaintenanceRecord
 from vehicles.models import Vehicle
+from generators.models import Generator
 from drivers.models import Driver
 from vendors.models import Vendor
 from audit.models import AuditLog
@@ -277,33 +278,67 @@ def dashboard(request):
     vdept = dept_q(user)
     fdept = dept_q(user, "vehicle")
 
+    # Vehicle-only dept filter (used for vehicle counts, top-vehicles, dept-scoped alerts)
+    # NOTE: fdept currently expands to {"vehicle__department": ...} for non-admins
+    # which is correct for VEHICLE records. For records that have BOTH vehicle and
+    # generator FKs (FuelCoupon, FuelLog, MaintenanceRecord), we need a Q-based
+    # widening: vehicle records stay dept-scoped, generator records are
+    # organisation-wide.
+    if request.user.is_system_admin or not request.user.department:
+        asset_scope_q = Q()
+    else:
+        asset_scope_q = Q(generator__isnull=False) | Q(vehicle__department=request.user.department)
+
     coupons_today = FuelCoupon.objects.filter(
-        issue_datetime__date=today, **fdept
+        asset_scope_q, issue_datetime__date=today
     ).count()
     coupon_value_today = FuelCoupon.objects.filter(
+        asset_scope_q,
         issue_datetime__date=today,
         status__in=FuelCoupon.EXPENSE_STATUSES,
-        **fdept
     ).aggregate(t=Sum("total_value"))["t"] or 0
     open_coupons = FuelCoupon.objects.filter(
-        status__in=(FuelCoupon.STATUS_APPROVED, FuelCoupon.STATUS_ISSUED), **fdept
+        asset_scope_q,
+        status__in=(FuelCoupon.STATUS_APPROVED, FuelCoupon.STATUS_ISSUED),
     ).count()
 
     month_start = today.replace(day=1)
-    fuel_spend  = FuelLog.objects.filter(fuel_date__gte=month_start, **fdept).aggregate(t=Sum("actual_cost"))["t"] or 0
-    maint_spend = MaintenanceRecord.objects.filter(service_date__gte=month_start, **fdept).aggregate(t=Sum("total_cost"))["t"] or 0
+
+    # Fuel and maintenance spend — broken down by asset type so the dashboard
+    # can show "₦X total (V: ₦Y, G: ₦Z)" rather than a single opaque figure.
+    fuel_logs_month  = FuelLog.objects.filter(asset_scope_q, fuel_date__gte=month_start)
+    maint_recs_month = MaintenanceRecord.objects.filter(asset_scope_q, service_date__gte=month_start)
+
+    fuel_spend_veh  = fuel_logs_month.filter(generator__isnull=True).aggregate(t=Sum("actual_cost"))["t"] or 0
+    fuel_spend_gen  = fuel_logs_month.filter(generator__isnull=False).aggregate(t=Sum("actual_cost"))["t"] or 0
+    maint_spend_veh = maint_recs_month.filter(generator__isnull=True).aggregate(t=Sum("total_cost"))["t"] or 0
+    maint_spend_gen = maint_recs_month.filter(generator__isnull=False).aggregate(t=Sum("total_cost"))["t"] or 0
+
+    fuel_spend  = fuel_spend_veh  + fuel_spend_gen
+    maint_spend = maint_spend_veh + maint_spend_gen
     monthly_spend = fuel_spend + maint_spend
+    monthly_spend_veh = fuel_spend_veh + maint_spend_veh
+    monthly_spend_gen = fuel_spend_gen + maint_spend_gen
 
     active_vehicles = Vehicle.objects.filter(status=Vehicle.STATUS_ACTIVE, **vdept).count()
     total_vehicles  = Vehicle.objects.filter(**vdept).count()
+
+    # Generators are organisation-wide so they're never dept-scoped.
+    from generators.models import Generator
+    active_generators = Generator.objects.filter(status=Generator.STATUS_ACTIVE).count()
+    total_generators  = Generator.objects.count()
 
     stats = {
         "coupons_today": coupons_today,
         "coupon_value_today": coupon_value_today,
         "open_coupons": open_coupons,
         "monthly_spend": monthly_spend,
+        "monthly_spend_veh": monthly_spend_veh,
+        "monthly_spend_gen": monthly_spend_gen,
         "active_vehicles": active_vehicles,
         "total_vehicles": total_vehicles,
+        "active_generators": active_generators,
+        "total_generators": total_generators,
     }
 
     alerts = []
@@ -314,18 +349,31 @@ def dashboard(request):
     if user.has_module_perm("maintenance", "read"):
         cutoff = today + timedelta(days=14)
         service_due_qs = MaintenanceRecord.objects.filter(
-            next_service_date__lte=cutoff, next_service_date__gte=today, **fdept
-        ).select_related("vehicle").order_by("next_service_date")
-        seen = set()
+            asset_scope_q,
+            next_service_date__lte=cutoff, next_service_date__gte=today,
+        ).select_related("vehicle", "generator").order_by("next_service_date")
+        seen_v, seen_g = set(), set()
         for rec in service_due_qs:
-            if rec.vehicle_id not in seen:
-                seen.add(rec.vehicle_id)
+            # Only one alert per asset (the next upcoming service)
+            if rec.is_for_vehicle:
+                if rec.vehicle_id in seen_v: continue
+                seen_v.add(rec.vehicle_id)
                 service_due.append(rec)
                 alerts.append({
                     "type": "warning",
                     "title": f"Service due: {rec.vehicle.plate_number}",
                     "detail": f"{rec.vehicle.make} {rec.vehicle.model} — due {rec.next_service_date}",
                     "url": f"/vehicles/{rec.vehicle.pk}/",
+                })
+            elif rec.is_for_generator:
+                if rec.generator_id in seen_g: continue
+                seen_g.add(rec.generator_id)
+                service_due.append(rec)
+                alerts.append({
+                    "type": "warning",
+                    "title": f"Service due: {rec.generator.tag}",
+                    "detail": f"{rec.generator.name} — due {rec.next_service_date}",
+                    "url": f"/generators/{rec.generator.pk}/",
                 })
 
     # ── Driver licence alerts (only if user can see drivers) ──
@@ -344,8 +392,8 @@ def dashboard(request):
                 "url": f"/drivers/{d.pk}/",
             })
 
-    fuel_map  = {r["vehicle_id"]: r["fuel"]  for r in FuelLog.objects.filter(fuel_date__gte=month_start, **fdept).values("vehicle_id").annotate(fuel=Sum("actual_cost"))}
-    maint_map = {r["vehicle_id"]: r["maint"] for r in MaintenanceRecord.objects.filter(service_date__gte=month_start, **fdept).values("vehicle_id").annotate(maint=Sum("total_cost"))}
+    fuel_map  = {r["vehicle_id"]: r["fuel"]  for r in FuelLog.objects.filter(fuel_date__gte=month_start, vehicle__isnull=False, **fdept).values("vehicle_id").annotate(fuel=Sum("actual_cost"))}
+    maint_map = {r["vehicle_id"]: r["maint"] for r in MaintenanceRecord.objects.filter(service_date__gte=month_start, vehicle__isnull=False, **fdept).values("vehicle_id").annotate(maint=Sum("total_cost"))}
     all_ids   = set(fuel_map) | set(maint_map)
     top_raw   = sorted([{"vehicle_id": v, "total_cost": (fuel_map.get(v) or 0) + (maint_map.get(v) or 0)} for v in all_ids], key=lambda x: x["total_cost"], reverse=True)
     vehicles_map = {v.pk: v for v in Vehicle.objects.filter(pk__in=[r["vehicle_id"] for r in top_raw[:5]])}
@@ -393,6 +441,7 @@ def dashboard(request):
         "can_see_fuel_logs":   request.user.has_module_perm("fuel_logs", "read"),
         "can_see_maintenance": request.user.has_module_perm("maintenance", "read"),
         "can_see_vehicles":    request.user.has_module_perm("vehicles", "read"),
+        "can_see_generators":  request.user.has_module_perm("generators", "read"),
         "can_see_drivers":     request.user.has_module_perm("drivers", "read"),
         "can_see_reports":     request.user.has_module_perm("reports", "read"),
         "can_see_audit":       request.user.has_module_perm("audit", "read"),
@@ -619,33 +668,216 @@ def _fleet_summary_pdf(request, ctx):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# REPORT — Generator Spending (mirror of Vehicle Spending)
+# ═══════════════════════════════════════════════════════════════════════
+
+@login_required
+def generator_spending(request):
+    """
+    Per-generator spending: fuel + maintenance over a date range.
+
+    Generators are organisation-wide so this is NOT department-scoped.
+    Generator coupons live in FuelLog rows with generator__isnull=False;
+    generator maintenance in MaintenanceRecord rows with the same predicate.
+    """
+    if not request.user.has_module_perm("reports", "read"):
+        return HttpResponseForbidden()
+
+    date_from, date_to = parse_dates(request)
+
+    # Optional filters
+    generator_filter = request.GET.get("generator", "")
+    building_filter  = request.GET.get("building", "").strip()
+    fuel_type_filter = request.GET.get("fuel_type", "")
+
+    generators = Generator.objects.all().order_by("tag")
+    filtered = generators
+    if generator_filter:
+        filtered = filtered.filter(pk=generator_filter)
+    if building_filter:
+        filtered = filtered.filter(building__iexact=building_filter)
+    if fuel_type_filter:
+        filtered = filtered.filter(fuel_type=fuel_type_filter)
+
+    rows = []
+    for g in filtered:
+        fuel = FuelLog.objects.filter(
+            generator=g, fuel_date__range=[date_from, date_to]
+        ).aggregate(
+            litres=Sum("actual_litres"), cost=Sum("actual_cost"), count=Count("id"),
+        )
+        maint = MaintenanceRecord.objects.filter(
+            generator=g, service_date__range=[date_from, date_to]
+        ).aggregate(cost=Sum("total_cost"), count=Count("id"))
+        fuel_cost  = fuel["cost"]  or Decimal("0")
+        maint_cost = maint["cost"] or Decimal("0")
+        total      = fuel_cost + maint_cost
+        if total > 0 or request.GET.get("show_all"):
+            rows.append({
+                "generator":   g,
+                "fuel_litres": fuel["litres"] or 0,
+                "fuel_cost":   fuel_cost,
+                "fuel_count":  fuel["count"],
+                "maint_cost":  maint_cost,
+                "maint_count": maint["count"],
+                "total":       total,
+            })
+    rows.sort(key=lambda x: x["total"], reverse=True)
+    grand_fuel  = sum(r["fuel_cost"]  for r in rows)
+    grand_maint = sum(r["maint_cost"] for r in rows)
+    grand_total = grand_fuel + grand_maint
+
+    # Distinct buildings for filter dropdown
+    buildings = (
+        Generator.objects.exclude(building="")
+        .values_list("building", flat=True).distinct().order_by("building")
+    )
+
+    fmt = request.GET.get("format", "")
+    if fmt == "excel":
+        return _generator_spending_excel(rows, date_from, date_to, grand_fuel, grand_maint, grand_total)
+    if fmt == "pdf":
+        return _generator_spending_pdf(request, rows, date_from, date_to, grand_fuel, grand_maint, grand_total)
+
+    return render(request, "reports/generator_spending.html", {
+        "rows": rows, "date_from": date_from, "date_to": date_to,
+        "grand_fuel": grand_fuel, "grand_maint": grand_maint, "grand_total": grand_total,
+        "generators": generators, "generator_filter": generator_filter,
+        "buildings": buildings, "building_filter": building_filter,
+        "fuel_choices": Generator.FUEL_CHOICES, "fuel_type_filter": fuel_type_filter,
+    })
+
+
+def _generator_spending_excel(rows, df, dt, gf, gm, gt):
+    n_cols = 8
+    wb, ws = xl_workbook("Generator Spending")
+    xl_title_block(ws, "Per-Generator Spending Report", "All Generators", df, dt, n_cols=n_cols)
+    cols = ["Tag", "Name", "Building", "Fuel Litres", "Fuel Cost (₦)",
+            "Maintenance Cost (₦)", "Service Count", "Total (₦)"]
+    widths = [14, 28, 20, 13, 16, 18, 14, 16]
+    xl_header_row(ws, cols, row=7)
+    for i, col_w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = col_w
+
+    r = 8
+    for row in rows:
+        xl_data_row(ws, [
+            row["generator"].tag,
+            row["generator"].name,
+            row["generator"].building,
+            float(row["fuel_litres"] or 0),
+            float(row["fuel_cost"] or 0),
+            float(row["maint_cost"] or 0),
+            row["maint_count"] or 0,
+            float(row["total"] or 0),
+        ], row=r, shade=(r % 2 == 0))
+        r += 1
+
+    xl_totals_row(ws, row=r, n_cols=n_cols, label_col=1, value_cols=[5, 6, 8],
+                  values=[float(gf), float(gm), float(gt)])
+    return xl_response(wb, f"generator_spending_{df}_{dt}.xlsx")
+
+
+def _generator_spending_pdf(request, rows, df, dt, gf, gm, gt):
+    return render(request, "reports/pdf/generator_spending.html", {
+        "rows": rows, "date_from": df, "date_to": dt,
+        "grand_fuel": gf, "grand_maint": gm, "grand_total": gt,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # REPORT 3 — Monthly Expense Report
 # ═══════════════════════════════════════════════════════════════════════
 
 @login_required
 def monthly_expense(request):
+    """
+    Combined monthly fuel + maintenance, broken down by asset type:
+      vehicle fuel / vehicle maintenance / generator fuel / generator maintenance.
+
+    Vehicle records are still department-scoped via vehicle.department.
+    Generator records are organisation-wide (no department scoping),
+    consistent with Gen-1/Gen-2 decisions.
+    """
     if not request.user.has_module_perm("reports", "read"):
         return HttpResponseForbidden()
 
     date_from, date_to = parse_dates(request)
-    fdept = dept_q(request.user, "vehicle")
+    user = request.user
 
-    fuel_logs = FuelLog.objects.filter(
-        fuel_date__range=[date_from, date_to], **fdept
-    ).select_related("vehicle", "driver", "coupon").order_by("fuel_date")
+    # Build Q filters that include generator records unconditionally,
+    # but constrain vehicle records to the user's department for non-admins.
+    if user.is_system_admin or not user.department:
+        veh_scope_q = Q()  # no scoping
+    else:
+        # vehicle records: must match dept; generator records: always allowed
+        veh_scope_q = Q(generator__isnull=False) | Q(vehicle__department=user.department)
 
-    maint_records = MaintenanceRecord.objects.filter(
-        service_date__range=[date_from, date_to], **fdept
-    ).select_related("vehicle", "vendor").order_by("service_date")
+    fuel_logs = (
+        FuelLog.objects
+        .filter(veh_scope_q, fuel_date__range=[date_from, date_to])
+        .select_related("vehicle", "driver", "generator", "coupon")
+        .order_by("fuel_date")
+    )
 
-    total_fuel  = sum(l.actual_cost for l in fuel_logs)
-    total_maint = sum(r.total_cost  for r in maint_records)
+    maint_records = (
+        MaintenanceRecord.objects
+        .filter(veh_scope_q, service_date__range=[date_from, date_to])
+        .select_related("vehicle", "generator", "vendor")
+        .order_by("service_date")
+    )
+
+    # Four-way breakdown
+    veh_fuel  = sum((l.actual_cost for l in fuel_logs    if l.is_for_vehicle),   Decimal("0"))
+    gen_fuel  = sum((l.actual_cost for l in fuel_logs    if l.is_for_generator), Decimal("0"))
+    veh_maint = sum((r.total_cost  for r in maint_records if r.is_for_vehicle),   Decimal("0"))
+    gen_maint = sum((r.total_cost  for r in maint_records if r.is_for_generator), Decimal("0"))
+
+    total_fuel  = veh_fuel  + gen_fuel
+    total_maint = veh_maint + gen_maint
     total_spend = total_fuel + total_maint
 
+    # Per-month buckets for the 4-line chart.
+    # Key = "YYYY-MM"; value = dict of the four series.
+    from collections import defaultdict
+    buckets = defaultdict(lambda: {
+        "veh_fuel":  Decimal("0"), "gen_fuel":  Decimal("0"),
+        "veh_maint": Decimal("0"), "gen_maint": Decimal("0"),
+    })
+
+    for l in fuel_logs:
+        key = l.fuel_date.strftime("%Y-%m")
+        bucket = buckets[key]
+        if l.is_for_vehicle:   bucket["veh_fuel"]  += (l.actual_cost or Decimal("0"))
+        elif l.is_for_generator: bucket["gen_fuel"] += (l.actual_cost or Decimal("0"))
+
+    for r in maint_records:
+        key = r.service_date.strftime("%Y-%m")
+        bucket = buckets[key]
+        if r.is_for_vehicle:    bucket["veh_maint"]  += (r.total_cost or Decimal("0"))
+        elif r.is_for_generator: bucket["gen_maint"] += (r.total_cost or Decimal("0"))
+
+    # Stable, sorted series for the chart.
+    months_sorted = sorted(buckets.keys())
+    chart_data = {
+        "labels":    months_sorted,
+        "veh_fuel":  [float(buckets[m]["veh_fuel"])  for m in months_sorted],
+        "gen_fuel":  [float(buckets[m]["gen_fuel"])  for m in months_sorted],
+        "veh_maint": [float(buckets[m]["veh_maint"]) for m in months_sorted],
+        "gen_maint": [float(buckets[m]["gen_maint"]) for m in months_sorted],
+    }
+
+    import json as _json
     ctx = {
         "date_from": date_from, "date_to": date_to,
         "fuel_logs": fuel_logs, "maint_records": maint_records,
+        # Combined totals (preserved for backward-compat with PDF/Excel templates)
         "total_fuel": total_fuel, "total_maint": total_maint, "total_spend": total_spend,
+        # New four-way breakdown
+        "veh_fuel":  veh_fuel,  "gen_fuel":  gen_fuel,
+        "veh_maint": veh_maint, "gen_maint": gen_maint,
+        # Chart data as JSON for inline use
+        "chart_data_json": _json.dumps(chart_data),
     }
 
     fmt = request.GET.get("format", "")
@@ -667,11 +899,17 @@ def _monthly_expense_excel(ctx):
     ws1.title = "Fuel Transactions"
     ws1.sheet_view.showGridLines = False
     xl_title_block(ws1, "Monthly Fuel Transactions", "Fuel log detail", df, dt, n_cols=n_cols)
-    xl_header_row(ws1, ["Date", "Coupon ID", "Vehicle", "Driver", "Litres", "Cost (₦)"], 7)
+    xl_header_row(ws1, ["Date", "Coupon ID", "Asset", "Driver / Building", "Litres", "Cost (₦)"], 7)
     for i, log in enumerate(ctx["fuel_logs"], 8):
+        if log.is_for_vehicle:
+            asset_str   = log.vehicle.plate_number
+            context_str = log.driver.full_name if log.driver_id else "—"
+        else:
+            asset_str   = log.generator.tag
+            context_str = log.generator.building
         xl_data_row(ws1, [
             str(log.fuel_date), log.coupon.coupon_id,
-            log.vehicle.plate_number, log.driver.full_name,
+            asset_str, context_str,
             float(log.actual_litres), float(log.actual_cost),
         ], i, shade=(i%2==0))
     totals_row1 = len(ctx["fuel_logs"]) + 8
@@ -686,10 +924,11 @@ def _monthly_expense_excel(ctx):
     ws2 = wb.create_sheet("Maintenance")
     ws2.sheet_view.showGridLines = False
     xl_title_block(ws2, "Monthly Maintenance Records", "Maintenance detail", df, dt, n_cols=n_cols)
-    xl_header_row(ws2, ["Date", "Vehicle", "Service Type", "Vendor", "Cost (₦)", "Approved By"], 7)
+    xl_header_row(ws2, ["Date", "Asset", "Service Type", "Vendor", "Cost (₦)", "Approved By"], 7)
     for i, rec in enumerate(ctx["maint_records"], 8):
+        asset_str = rec.vehicle.plate_number if rec.is_for_vehicle else rec.generator.tag
         xl_data_row(ws2, [
-            str(rec.service_date), rec.vehicle.plate_number,
+            str(rec.service_date), asset_str,
             rec.get_service_type_display(), rec.effective_vendor_name,
             float(rec.total_cost), rec.approved_by,
         ], i, shade=(i%2==0))
@@ -713,13 +952,21 @@ def coupon_report(request):
         return HttpResponseForbidden()
 
     date_from, date_to = parse_dates(request)
-    fdept = dept_q(request.user, "vehicle")
+    user = request.user
 
-    coupons = FuelCoupon.objects.filter(
-        issue_datetime__date__gte=date_from,
-        issue_datetime__date__lte=date_to,
-        **fdept
-    ).select_related("vehicle", "driver", "fuel_station", "issued_by").order_by("-issue_datetime")
+    if user.is_system_admin or not user.department:
+        scope_q = Q()
+    else:
+        scope_q = Q(generator__isnull=False) | Q(vehicle__department=user.department)
+
+    coupons = (
+        FuelCoupon.objects
+        .filter(scope_q,
+                issue_datetime__date__gte=date_from,
+                issue_datetime__date__lte=date_to)
+        .select_related("vehicle", "driver", "generator", "fuel_station", "issued_by")
+        .order_by("-issue_datetime")
+    )
 
     by_status = {s: coupons.filter(status=s).count() for s, _ in FuelCoupon.STATUS_CHOICES}
     total_value   = coupons.filter(status__in=FuelCoupon.EXPENSE_STATUSES).aggregate(t=Sum("total_value"))["t"] or 0
@@ -748,11 +995,17 @@ def _coupon_report_excel(ctx):
     wb, ws = xl_workbook("Coupon Report")
     ws.sheet_view.showGridLines = False
     xl_title_block(ws, "Fuel Coupon Report", "All issued coupons", df, dt, n_cols=n_cols)
-    xl_header_row(ws, ["Coupon ID", "Issued", "Vehicle", "Driver", "Station", "Litres", "Value (₦)", "Status"], 7)
+    xl_header_row(ws, ["Coupon ID", "Issued", "Asset", "Driver / Building", "Station", "Litres", "Value (₦)", "Status"], 7)
     for i, c in enumerate(ctx["coupons"], 8):
+        if c.is_for_vehicle:
+            asset_str   = c.vehicle.plate_number
+            context_str = c.driver.full_name if c.driver_id else "—"
+        else:
+            asset_str   = c.generator.tag
+            context_str = c.generator.building
         xl_data_row(ws, [
             c.coupon_id, c.issue_datetime.strftime("%d/%m/%Y %H:%M"),
-            c.vehicle.plate_number, c.driver.full_name, c.fuel_station.name,
+            asset_str, context_str, c.fuel_station.name,
             float(c.litres), float(c.total_value), c.get_status_display(),
         ], i, shade=(i%2==0))
     totals_row = len(ctx["coupons"]) + 8
@@ -774,11 +1027,21 @@ def maintenance_report(request):
         return HttpResponseForbidden()
 
     date_from, date_to = parse_dates(request)
-    fdept = dept_q(request.user, "vehicle")
+    user = request.user
 
-    records = MaintenanceRecord.objects.filter(
-        service_date__range=[date_from, date_to], **fdept
-    ).select_related("vehicle", "vendor", "created_by").order_by("-service_date")
+    # Include both vehicle (dept-scoped) and generator (organisation-wide) records
+    if user.is_system_admin or not user.department:
+        scope_q = Q()
+    else:
+        scope_q = Q(generator__isnull=False) | Q(vehicle__department=user.department)
+
+    records = (
+        MaintenanceRecord.objects
+        .filter(scope_q, service_date__range=[date_from, date_to])
+        .select_related("vehicle", "generator", "vendor", "created_by")
+        .prefetch_related("items")
+        .order_by("-service_date")
+    )
 
     total_cost = records.aggregate(t=Sum("total_cost"))["t"] or 0
     by_type    = {}
@@ -807,19 +1070,24 @@ def _maintenance_excel(ctx):
     wb, ws = xl_workbook("Maintenance History")
     ws.sheet_view.showGridLines = False
     xl_title_block(ws, "Maintenance History Report", "All maintenance records", df, dt, n_cols=n_cols)
-    xl_header_row(ws, ["Date", "Vehicle", "Plate", "Service Type", "Description", "Vendor", "Cost (₦)", "Approved By"], 7)
+    xl_header_row(ws, ["Date", "Asset Kind", "Asset", "Service Type", "Description", "Vendor", "Cost (₦)", "Approved By"], 7)
     for i, r in enumerate(ctx["records"], 8):
+        if r.is_for_vehicle:
+            asset_kind  = "Vehicle"
+            asset_label = f"{r.vehicle.plate_number} ({r.vehicle.make} {r.vehicle.model})"
+        else:
+            asset_kind  = "Generator"
+            asset_label = f"{r.generator.tag} ({r.generator.name})"
         xl_data_row(ws, [
-            str(r.service_date),
-            f"{r.vehicle.make} {r.vehicle.model}", r.vehicle.plate_number,
-            r.get_service_type_display(), r.description[:60],
+            str(r.service_date), asset_kind, asset_label,
+            r.get_service_type_display(), r.items_summary[:80],
             r.effective_vendor_name, float(r.total_cost), r.approved_by,
         ], i, shade=(i%2==0))
     totals_row = len(ctx["records"]) + 8
     xl_totals_row(ws, totals_row, n_cols, label_col=1,
                   value_cols=[7],
                   values=[float(ctx["total_cost"])])
-    for col, w in zip(["A","B","C","D","E","F","G","H"], [13, 22, 14, 18, 32, 22, 16, 20]):
+    for col, w in zip(["A","B","C","D","E","F","G","H"], [13, 12, 28, 18, 32, 22, 16, 20]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"maintenance_report_{df}_{dt}.xlsx")
 
@@ -834,14 +1102,22 @@ def vendor_report(request):
         return HttpResponseForbidden()
 
     date_from, date_to = parse_dates(request)
-    fdept = dept_q(request.user, "vehicle")
+    user = request.user
+
+    # Include vehicle records (dept-scoped) AND all generator records.
+    if user.is_system_admin or not user.department:
+        scope_q = Q()
+    else:
+        scope_q = Q(generator__isnull=False) | Q(vehicle__department=user.department)
 
     rows = []
     for vendor in Vendor.objects.all().order_by("name"):
-        fuel  = FuelLog.objects.filter(fuel_station=vendor, fuel_date__range=[date_from, date_to], **fdept).aggregate(
-            cost=Sum("actual_cost"), litres=Sum("actual_litres"), count=Count("id"))
-        maint = MaintenanceRecord.objects.filter(vendor=vendor, service_date__range=[date_from, date_to], **fdept).aggregate(
-            cost=Sum("total_cost"), count=Count("id"))
+        fuel  = FuelLog.objects.filter(
+            scope_q, fuel_station=vendor, fuel_date__range=[date_from, date_to]
+        ).aggregate(cost=Sum("actual_cost"), litres=Sum("actual_litres"), count=Count("id"))
+        maint = MaintenanceRecord.objects.filter(
+            scope_q, vendor=vendor, service_date__range=[date_from, date_to]
+        ).aggregate(cost=Sum("total_cost"), count=Count("id"))
         fc = fuel["cost"]  or Decimal("0")
         mc = maint["cost"] or Decimal("0")
         if fc > 0 or mc > 0:

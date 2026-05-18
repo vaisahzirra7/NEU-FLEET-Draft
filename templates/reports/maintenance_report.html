@@ -21,14 +21,26 @@
   <div class="card-header"><div class="card-title">All Maintenance Records</div></div>
   <div class="table-wrapper">
     <table class="data-table">
-      <thead><tr><th>Date</th><th>Vehicle</th><th>Type</th><th>Description</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
+      <thead><tr><th>Date</th><th>Asset</th><th>Type</th><th>Description</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
       <tbody>
         {% for rec in records %}
         <tr>
           <td>{{ rec.service_date|date:"j M Y" }}</td>
-          <td><a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="fw-600">{{ rec.vehicle.plate_number }}</a></td>
+          <td>
+            {% if rec.is_for_vehicle %}
+              <div>
+                <a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="fw-600">{{ rec.vehicle.plate_number }}</a>
+                <span class="asset-label-text asset-label-vehicle">Vehicle</span>
+              </div>
+            {% else %}
+              <div>
+                <a href="{% url 'generators:detail' rec.generator.pk %}" class="fw-600">{{ rec.generator.tag }}</a>
+                <span class="asset-label-text asset-label-generator">Generator</span>
+              </div>
+            {% endif %}
+          </td>
           <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
-          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ rec.description }}</td>
+          <td style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ rec.items_summary }}">{{ rec.items_summary|default:"—" }}</td>
           <td>{{ rec.effective_vendor_name }}</td>
           <td class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
           <td style="color:var(--text-muted);font-size:.78rem;">{{ rec.approved_by }}</td>

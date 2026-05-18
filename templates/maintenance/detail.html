@@ -24,35 +24,35 @@
     <div class="card-header">
       <div class="card-title">Work Done</div>
     </div>
-    <div class="card-body" style="padding:0;">
-      <table class="data-table">
+    <div class="card-body" style="padding:0 1rem 1rem;">
+      <table class="data-table" style="width:100%;">
         <thead>
           <tr>
             <th>Service Type</th>
             <th>Description</th>
-            <th style="text-align:right;">Cost (₦)</th>
+            <th style="text-align:right;white-space:nowrap;">Cost (₦)</th>
           </tr>
         </thead>
         <tbody>
           {% for it in rec.items.all %}
           <tr>
             <td><span class="badge badge-navy">{{ it.get_service_type_display }}</span></td>
-            <td>{{ it.description }}</td>
-            <td style="text-align:right;" class="fw-600">{{ it.cost|floatformat:2 }}</td>
+            <td style="word-break:break-word;">{{ it.description }}</td>
+            <td style="text-align:right;white-space:nowrap;" class="fw-600">{{ it.cost|floatformat:2 }}</td>
           </tr>
           {% empty %}
           {# Legacy record with no items — show record-level summary as a single row #}
           <tr>
             <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
-            <td>{{ rec.description }}</td>
-            <td style="text-align:right;" class="fw-600">{{ rec.total_cost|floatformat:2 }}</td>
+            <td style="word-break:break-word;">{{ rec.description }}</td>
+            <td style="text-align:right;white-space:nowrap;" class="fw-600">{{ rec.total_cost|floatformat:2 }}</td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
           <tr style="background:var(--surface-2);">
             <td colspan="2" style="text-align:right; font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:.78rem; letter-spacing:.03em;">Total</td>
-            <td style="text-align:right; font-weight:700; color:var(--navy); font-size:1.05rem;">₦ {{ rec.total_cost|floatformat:2 }}</td>
+            <td style="text-align:right;white-space:nowrap;font-weight:700; color:var(--navy); font-size:1.05rem;">₦ {{ rec.total_cost|floatformat:2 }}</td>
           </tr>
         </tfoot>
       </table>
