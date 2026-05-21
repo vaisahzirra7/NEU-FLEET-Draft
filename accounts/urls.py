@@ -15,6 +15,9 @@ urlpatterns = [
     path("forgot-password/verify/",  views.password_reset_verify,  name="password_reset_verify"),
     path("forgot-password/confirm/", views.password_reset_confirm, name="password_reset_confirm"),
 
+    # User invite (magic-link activation for new accounts)
+    path("invite/<str:token>/", views.accept_invite, name="accept_invite"),
+
     # Users
     path("users/",               views.users_list,   name="users"),
     path("users/create/",        views.user_create,  name="user_create"),

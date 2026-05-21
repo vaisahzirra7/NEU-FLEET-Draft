@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% block title %}System Settings{% endblock %}
+{% block page_title %}System Settings{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> System Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+.tabs{display:flex;gap:.25rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;}
+.tab{padding:.6rem 1rem;font-size:.85rem;color:var(--text-muted);font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tab.active{color:var(--navy);border-bottom-color:var(--navy);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.preview-tile{width:120px;height:120px;border:1px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);overflow:hidden;}
+.preview-tile img{max-width:100%;max-height:100%;object-fit:contain;}
+.preview-tile-empty{color:var(--text-muted);font-size:.75rem;text-align:center;padding:.5rem;}
+.preview-fav{width:48px;height:48px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--surface-2);overflow:hidden;}
+.preview-fav img{max-width:100%;max-height:100%;}
+.upload-row{display:flex;align-items:flex-start;gap:1rem;margin-top:.4rem;}
+.section-divider{margin:1.5rem 0 1rem;padding-top:1.25rem;border-top:1px solid var(--border);}
+.section-divider h3{font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;}
+.section-divider p{font-size:.82rem;color:var(--text-muted);margin:0 0 .85rem;}
+.alert-warn{background:#fff8e6;border:1px solid #f0c66c;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.25rem;font-size:.82rem;color:#7c5800;display:flex;gap:.6rem;align-items:flex-start;}
+.alert-warn svg{flex-shrink:0;margin-top:.15rem;}
+.alert-info{background:rgba(13,106,158,.07);border:1px solid rgba(13,106,158,.18);border-radius:8px;padding:.7rem .9rem;margin-bottom:1rem;font-size:.8rem;color:var(--text);}
+.smtp-active-badge{display:inline-block;padding:.2rem .55rem;border-radius:10px;background:rgba(76,175,80,.13);color:#206a23;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.smtp-fallback-badge{display:inline-block;padding:.2rem .55rem;border-radius:10px;background:rgba(160,170,180,.18);color:#566;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.test-row{display:flex;gap:.5rem;align-items:flex-end;margin-top:1rem;padding-top:1rem;border-top:1px dashed var(--border);}
+.test-row .form-group{flex:1;margin-bottom:0;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="card-icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        System Settings
+      </div>
+    </div>
+    <div class="card-body">
+
+      {# ─── Tabs ─── #}
+      <div class="tabs">
+        <button type="button" class="tab {% if active_tab != 'smtp' %}active{% endif %}" data-target="tab-branding">Branding</button>
+        {% if can_view_smtp %}
+        <button type="button" class="tab {% if active_tab == 'smtp' %}active{% endif %}" data-target="tab-smtp">SMTP / Email</button>
+        {% endif %}
+      </div>
+
+      {# ──────────────────────────── BRANDING TAB ──────────────────────────── #}
+      <div id="tab-branding" class="tab-panel {% if active_tab != 'smtp' %}active{% endif %}">
+        <p style="color:var(--text-muted);font-size:.85rem;margin:0 0 1.25rem;">
+          Institution identity for this deployment. Changes take effect immediately for all users.
+          {% if not can_edit_branding %}<br><strong>View only</strong> — your role can read but not change these settings.{% endif %}
+        </p>
+
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_branding">
+
+          <div class="form-group">
+            <label class="form-label">Institution Name <span class="req">*</span></label>
+            <input type="text" name="institution_name" class="form-control {% if errors.institution_name %}field-error{% endif %}"
+              value="{{ post.institution_name|default:obj.institution_name }}"
+              {% if not can_edit_branding %}disabled{% endif %}
+              placeholder="e.g. North-Eastern University Fleet">
+            {% if errors.institution_name %}<div class="error-msg">{{ errors.institution_name }}</div>{% endif %}
+            <div class="form-hint">Large text shown next to the logo in the sidebar.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Subtitle</label>
+            <input type="text" name="institution_subtitle" class="form-control"
+              value="{{ post.institution_subtitle|default:obj.institution_subtitle }}"
+              {% if not can_edit_branding %}disabled{% endif %}
+              placeholder="e.g. North-Eastern University, Gombe  ·  FMS">
+            <div class="form-hint">Smaller line beneath the institution name. Leave blank to hide.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">System Name <span class="req">*</span></label>
+            <input type="text" name="system_name" class="form-control {% if errors.system_name %}field-error{% endif %}"
+              value="{{ post.system_name|default:obj.system_name }}"
+              {% if not can_edit_branding %}disabled{% endif %}
+              placeholder="e.g. VanaraFleetsOps">
+            {% if errors.system_name %}<div class="error-msg">{{ errors.system_name }}</div>{% endif %}
+            <div class="form-hint">Internal product name. Used in browser tab titles and email subjects.</div>
+          </div>
+
+          <div class="section-divider">
+            <h3>Logo &amp; Favicon</h3>
+            <p>Square images render best. PNG, JPG, SVG, or WEBP for the logo; PNG, ICO, or SVG for the favicon. 2 MB max each.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Logo</label>
+            <div class="upload-row">
+              <div class="preview-tile">
+                {% if obj.logo_url %}<img src="{{ obj.logo_url }}" alt="Current logo">{% else %}<div class="preview-tile-empty">No logo<br>uploaded</div>{% endif %}
+              </div>
+              <div style="flex:1;">
+                <input type="file" name="logo" class="form-control {% if errors.logo %}field-error{% endif %}"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                  {% if not can_edit_branding %}disabled{% endif %}>
+                {% if errors.logo %}<div class="error-msg">{{ errors.logo }}</div>{% endif %}
+                <div class="form-hint">~120 × 120 px recommended. Uploaded files replace the current logo.</div>
+                {% if obj.logo_url and can_edit_branding %}
+                <label style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.82rem;cursor:pointer;color:var(--danger);">
+                  <input type="checkbox" name="remove_logo" value="1" style="width:14px;height:14px;">
+                  Remove current logo (revert to default icon)
+                </label>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Favicon</label>
+            <div class="upload-row">
+              <div class="preview-fav">
+                {% if obj.favicon_url %}<img src="{{ obj.favicon_url }}" alt="Current favicon">{% else %}<div class="preview-tile-empty" style="font-size:.65rem;">None</div>{% endif %}
+              </div>
+              <div style="flex:1;">
+                <input type="file" name="favicon" class="form-control {% if errors.favicon %}field-error{% endif %}"
+                  accept="image/png,image/x-icon,image/svg+xml,image/vnd.microsoft.icon"
+                  {% if not can_edit_branding %}disabled{% endif %}>
+                {% if errors.favicon %}<div class="error-msg">{{ errors.favicon }}</div>{% endif %}
+                <div class="form-hint">32 × 32 or 64 × 64 px. Hard refresh may be needed to see new favicon.</div>
+                {% if obj.favicon_url and can_edit_branding %}
+                <label style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.82rem;cursor:pointer;color:var(--danger);">
+                  <input type="checkbox" name="remove_favicon" value="1" style="width:14px;height:14px;">
+                  Remove current favicon
+                </label>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          {% if can_edit_branding %}
+          <div class="d-flex gap-1 mt-2">
+            <button type="submit" class="btn btn-primary">Save Branding</button>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline">Cancel</a>
+          </div>
+          {% endif %}
+        </form>
+      </div>
+
+      {# ──────────────────────────── SMTP TAB ──────────────────────────── #}
+      {% if can_view_smtp %}
+      <div id="tab-smtp" class="tab-panel {% if active_tab == 'smtp' %}active{% endif %}">
+        <p style="color:var(--text-muted);font-size:.85rem;margin:0 0 .8rem;">
+          Configure the SMTP server used for all outbound mail.
+          {% if not can_edit_smtp %}<br><strong>View only</strong> — your role can read but not change SMTP settings.{% endif %}
+        </p>
+
+        {% if obj.smtp_overrides_active %}
+        <div class="alert-info">
+          <span class="smtp-active-badge">Custom SMTP active</span>
+          The values below override <code>settings.py</code>. Clear all fields to fall back.
+        </div>
+        {% else %}
+        <div class="alert-info">
+          <span class="smtp-fallback-badge">Fallback</span>
+          Will make use of the SMTP settings defined in <code>settings.py</code>. Filling host, port, username, and password below activates a database override.
+        </div>
+        {% endif %}
+
+                <form method="post" novalidate autocomplete="off">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_smtp">
+
+          <div class="section-divider" style="margin-top:0;border-top:none;padding-top:0;">
+            <h3>Visible Sender</h3>
+            <p>The address recipients see in the "From" field. Often same as the SMTP username, but can be different if your provider supports it (Mailgun, SendGrid, aliases, etc).</p>
+          </div>
+
+          {% if domain_mismatch %}
+          <div class="alert-warn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <strong>Domain mismatch detected.</strong> Your From-address (<code>{{ obj.email_from }}</code>) uses a different domain than your SMTP username (<code>{{ smtp_user_addr }}</code>). Many SMTP providers will reject sends with error <code>553</code>. Use a From-address on the same domain as your SMTP user, OR configure your SMTP provider to allow it.
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="form-group">
+            <label class="form-label">From Address <span class="req">*</span></label>
+            <input type="email" name="email_from" class="form-control {% if errors.email_from %}field-error{% endif %}"
+              value="{{ post.email_from|default:obj.email_from }}"
+              {% if not can_edit_smtp %}disabled{% endif %}
+              placeholder="fleet@your-institution.edu.ng">
+            {% if errors.email_from %}<div class="error-msg">{{ errors.email_from }}</div>{% endif %}
+            <div class="form-hint">Shown as the sender on every outbound email.</div>
+          </div>
+
+          <div class="section-divider">
+            <h3>SMTP Server</h3>
+            <p>Connection credentials for the outbound mail server.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">SMTP Host</label>
+            <input type="text" name="smtp_host" class="form-control {% if errors.smtp_host %}field-error{% endif %}"
+              value="{{ post.smtp_host|default:obj.smtp_host }}"
+              {% if not can_edit_smtp %}disabled{% endif %}
+              placeholder="smtp.zoho.com">
+            {% if errors.smtp_host %}<div class="error-msg">{{ errors.smtp_host }}</div>{% endif %}
+          </div>
+
+          <div class="form-group" style="display:flex;gap:1rem;">
+            <div style="flex:1;">
+              <label class="form-label">Port</label>
+              <input type="number" name="smtp_port" class="form-control {% if errors.smtp_port %}field-error{% endif %}"
+                value="{{ post.smtp_port|default:obj.smtp_port|default:'' }}"
+                {% if not can_edit_smtp %}disabled{% endif %}
+                min="1" max="65535" placeholder="587">
+              {% if errors.smtp_port %}<div class="error-msg">{{ errors.smtp_port }}</div>{% endif %}
+            </div>
+            <div style="flex:2;">
+              <label class="form-label">Username</label>
+              <input type="text" name="smtp_user" class="form-control"
+                value="{{ post.smtp_user|default:obj.smtp_user }}"
+                {% if not can_edit_smtp %}disabled{% endif %}
+                placeholder="user@example.com" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="smtp_password" class="form-control"
+              {% if not can_edit_smtp %}disabled{% endif %}
+              value="{% if obj.smtp_password_encrypted %}{{ password_sentinel }}{% endif %}"
+              placeholder="Enter SMTP password" autocomplete="new-password">
+            <div class="form-hint">Encrypted at rest. Type a new value to update, leave blank to clear, leave as {{ password_sentinel }} to keep current.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Connection Security</label>
+            <div style="display:flex;gap:1.25rem;margin-top:.4rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.85rem;">
+                <input type="checkbox" name="smtp_use_tls" value="1"
+                  {% if can_edit_smtp %}{% else %}disabled{% endif %}
+                  {% if post.smtp_use_tls or obj.smtp_use_tls and not post %}checked{% endif %}
+                  style="width:14px;height:14px;">
+                TLS (STARTTLS, port 587)
+              </label>
+              <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.85rem;">
+                <input type="checkbox" name="smtp_use_ssl" value="1"
+                  {% if can_edit_smtp %}{% else %}disabled{% endif %}
+                  {% if post.smtp_use_ssl or obj.smtp_use_ssl and not post %}checked{% endif %}
+                  style="width:14px;height:14px;">
+                SSL (direct, port 465)
+              </label>
+            </div>
+            {% if errors.smtp_use_tls %}<div class="error-msg">{{ errors.smtp_use_tls }}</div>{% endif %}
+            <div class="form-hint">Pick one. TLS is more common.</div>
+          </div>
+
+          {% if can_edit_smtp %}
+          <div class="d-flex gap-1 mt-2">
+            <button type="submit" class="btn btn-primary">Save SMTP Settings</button>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline">Cancel</a>
+          </div>
+          {% endif %}
+        </form>
+
+        {% if can_edit_smtp %}
+        {# Separate form so it doesn't trigger the save-validation #}
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="test_smtp">
+          {# Re-submit any unsaved typed values for accurate testing #}
+          <input type="hidden" name="smtp_host" id="hidden_smtp_host">
+          <input type="hidden" name="smtp_port" id="hidden_smtp_port">
+          <input type="hidden" name="smtp_user" id="hidden_smtp_user">
+          <input type="hidden" name="smtp_password" id="hidden_smtp_password">
+          <input type="hidden" name="smtp_use_tls" id="hidden_smtp_use_tls">
+          <input type="hidden" name="smtp_use_ssl" id="hidden_smtp_use_ssl">
+
+          <div class="test-row">
+            <div class="form-group">
+              <label class="form-label">Send Test Email To</label>
+              <input type="email" name="test_recipient" class="form-control"
+                value="{{ request.user.email }}"
+                placeholder="your-email@example.com">
+              <div class="form-hint">Useful BEFORE saving: type values above, then test.</div>
+            </div>
+            <button type="submit" class="btn btn-outline" style="border-color:var(--info);color:var(--info);">
+              Send Test
+            </button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-muted);">
+        Last updated: {{ obj.updated_at|date:"j M Y H:i" }}
+        {% if obj.updated_by %} by {{ obj.updated_by.full_name }}{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Tab switcher
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      var target = this.getAttribute('data-target');
+      tabs.forEach(function(t){ t.classList.remove('active'); });
+      this.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(function(p){
+        p.classList.toggle('active', p.id === target);
+      });
+    });
+  });
+
+  // TLS/SSL mutual exclusion (UI hint only — server enforces)
+  var tls = document.querySelector('input[name="smtp_use_tls"]');
+  var ssl = document.querySelector('input[name="smtp_use_ssl"]');
+  if (tls && ssl) {
+    tls.addEventListener('change', function(){ if (tls.checked) ssl.checked = false; });
+    ssl.addEventListener('change', function(){ if (ssl.checked) tls.checked = false; });
+  }
+
+  // Test-email form: copy current SMTP form values into hidden inputs
+  // so the test uses unsaved values
+  var testForm = document.querySelector('input[name="action"][value="test_smtp"]');
+  if (testForm) {
+    testForm.form.addEventListener('submit', function(){
+      var src = function(name){ return document.querySelector('input[name="'+name+'"]'); };
+      var dst = function(id){ return document.getElementById(id); };
+      var pairs = [
+        ['smtp_host',     'hidden_smtp_host'],
+        ['smtp_port',     'hidden_smtp_port'],
+        ['smtp_user',     'hidden_smtp_user'],
+        ['smtp_password', 'hidden_smtp_password'],
+      ];
+      pairs.forEach(function(p){
+        var srcEl = src(p[0]);
+        var dstEl = dst(p[1]);
+        if (srcEl && dstEl) dstEl.value = srcEl.value;
+      });
+      if (src('smtp_use_tls') && dst('hidden_smtp_use_tls'))
+        dst('hidden_smtp_use_tls').value = src('smtp_use_tls').checked ? '1' : '';
+      if (src('smtp_use_ssl') && dst('hidden_smtp_use_ssl'))
+        dst('hidden_smtp_use_ssl').value = src('smtp_use_ssl').checked ? '1' : '';
+    });
+  }
+})();
+</script>
+{% endblock %}

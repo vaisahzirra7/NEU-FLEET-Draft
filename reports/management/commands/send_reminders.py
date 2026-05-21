@@ -34,6 +34,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _brand_from_email():
+    """Prefer SystemSettings.email_from; fall back to DEFAULT_FROM_EMAIL."""
+    return _brand().get("email_from")
+
+
+def _brand():
+    """
+    Returns {system_name, institution_name, institution_subtitle, email_from}.
+    Falls back to defaults if SystemSettings isn't available.
+    """
+    defaults = {
+        "system_name":          "VanaraFleetsOps",
+        "institution_name":     "VanaraFleetsOps",
+        "institution_subtitle": "North-Eastern University, Gombe  ·  FMS",
+        "email_from":           getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+    }
+    try:
+        from system_settings.models import SystemSettings
+        s = SystemSettings.get()
+        return {
+            "system_name":          s.system_name          or defaults["system_name"],
+            "institution_name":     s.institution_name     or defaults["institution_name"],
+            "institution_subtitle": s.institution_subtitle or defaults["institution_subtitle"],
+            "email_from":           s.email_from           or defaults["email_from"],
+        }
+    except Exception:
+        return defaults
+
+logger = logging.getLogger(__name__)
+
+
 def _logo_html():
     """Return an <img> tag with the NEU logo embedded as base64."""
     logo_path = getattr(settings, "REPORT_LOGO_PATH", None)
@@ -50,6 +81,7 @@ def _logo_html():
 
 def _email_wrapper(logo_html, title, body_html, footer=""):
     """Wrap content in the branded email shell."""
+    _b = _brand()
     return f"""<!DOCTYPE html>
 
     <html lang="en">
@@ -69,8 +101,8 @@ def _email_wrapper(logo_html, title, body_html, footer=""):
           <td style="background:#0f2044;border-radius:16px 16px 0 0;padding:28px 36px;text-align:center;">
             <img src="cid:neu_logo" alt="NEU Logo"
               style="width:72px;height:72px;object-fit:contain;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;">
-            <div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;">VanaraFleetsOps</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:4px;">North-Eastern University, Gombe &nbsp;&middot;&nbsp; Fleet Management System</div>
+            <div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;">{_b['system_name']}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:4px;">{_b['institution_subtitle']}</div>
           </td>
         </tr>
 
@@ -85,7 +117,7 @@ def _email_wrapper(logo_html, title, body_html, footer=""):
 
         <!-- Footer -->
         <tr><td style="background:#f4f6fa;border-radius:0 0 16px 16px;padding:18px 36px;text-align:center;font-size:11px;color:#8a96b3;">
-          {footer if footer else "This is an automated reminder from VanaraFleetsOps. Do not reply to this email."}
+          {footer if footer else f"This is an automated reminder from {_b['system_name']}. Do not reply to this email."}
         </td></tr>
 
       </table>
@@ -96,12 +128,14 @@ def _email_wrapper(logo_html, title, body_html, footer=""):
 
 def _send(subject, html, recipients):
     """Send an HTML email to a list of recipients."""
+    from system_settings.mail import get_mail_connection
     plain = "Please view this email in an HTML-capable email client."
     msg = EmailMultiAlternatives(
         subject=subject,
         body=plain,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+        from_email=_brand_from_email(),
         to=recipients,
+        connection=get_mail_connection(),
     )
     msg.attach_alternative(html, "text/html")
     
@@ -171,6 +205,7 @@ class Command(BaseCommand):
 
     def _driver_licence_reminders(self, today, logo, admins):
         from drivers.models import Driver
+        _b = _brand()
 
         if not admins:
             self.stdout.write("  No admin emails configured — skipping driver licence reminders.")
@@ -219,11 +254,11 @@ class Command(BaseCommand):
               </table>
               
               <p style="margin:20px 0 0;font-size:12px;color:#8a96b3;">
-                Log in to VanaraFleetsOps to renew a licence: go to Drivers &rarr; Driver Detail &rarr; Renew Licence.
+                Log in to {_b['system_name']} to renew a licence: go to Drivers &rarr; Driver Detail &rarr; Renew Licence.
               </p>"""
             html = _email_wrapper(logo, "Driver Licence Expiry Warning", body)
             _send(
-                f"VanaraFleetsOps — Driver Licence Expiry Warning ({expiring.count()} driver(s))",
+                f"{_b['system_name']} — Driver Licence Expiry Warning ({expiring.count()} driver(s))",
                 html, admins
             )
             self.stdout.write(self.style.SUCCESS(f"  ✓ Driver licence WARNING sent — {expiring.count()} expiring soon"))
@@ -265,7 +300,7 @@ class Command(BaseCommand):
               </table>"""
             html = _email_wrapper(logo, "Driver Licence Expired", body)
             _send(
-                f"VanaraFleetsOps — URGENT: Driver Licence Expired ({expired_today.count()} driver(s))",
+                f"{_b['system_name']} — URGENT: Driver Licence Expired ({expired_today.count()} driver(s))",
                 html, admins
             )
             self.stdout.write(self.style.SUCCESS(f"  ✓ Driver licence EXPIRED alert sent — {expired_today.count()} expired today"))
@@ -277,6 +312,7 @@ class Command(BaseCommand):
 
     def _fleet_licence_reminder(self, today, logo, admins):
         from vehicles.models import FleetLicenceExpiry
+        _b = _brand()
 
         fleet = FleetLicenceExpiry.get()
         if not fleet or not admins:
@@ -289,7 +325,7 @@ class Command(BaseCommand):
             body = f"""
               <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#0f2044;">Fleet Vehicle Licence Expiry Warning</p>
               <p style="margin:0 0 20px;font-size:14px;color:#5a6480;line-height:1.7;">
-                The fleet vehicle licences for North-Eastern University, Gombe are due to expire in
+                The fleet vehicle licences for {_b['institution_name']} are due to expire in
                 <strong style="color:#c8813a;">{days_left} day(s)</strong>.
               </p>
               <table width="100%" cellpadding="0" cellspacing="0"
@@ -305,11 +341,11 @@ class Command(BaseCommand):
                 {'<tr style="border-top:1px solid #dde2ed;"><td style="padding:16px 20px;font-size:.85rem;color:#5a6480;">Notes</td><td style="padding:16px 20px;font-size:.85rem;color:#5a6480;">' + fleet.notes + '</td></tr>' if fleet.notes else ''}
               </table>
               <p style="margin:20px 0 0;font-size:12px;color:#8a96b3;">
-                Log in to VanaraFleetsOps and update the fleet licence expiry date once renewed.
+                Log in to {_b['system_name']} and update the fleet licence expiry date once renewed.
               </p>"""
             html = _email_wrapper(logo, "Fleet Licence Expiry Warning", body)
             _send(
-                f"VanaraFleetsOps — Fleet Vehicle Licence Expiring in {days_left} Day(s)",
+                f"{_b['system_name']} — Fleet Vehicle Licence Expiring in {days_left} Day(s)",
                 html, admins
             )
             self.stdout.write(self.style.SUCCESS(f"  ✓ Fleet licence WARNING sent — {days_left} days left"))
@@ -331,11 +367,11 @@ class Command(BaseCommand):
                 </tr>
               </table>
               <p style="margin:20px 0 0;font-size:12px;color:#8a96b3;">
-                Renew the fleet licences immediately and update the expiry date in VanaraFleetsOps.
+                Renew the fleet licences immediately and update the expiry date in {_b['system_name']}.
               </p>"""
             html = _email_wrapper(logo, "Fleet Vehicle Licence Expired", body)
             _send(
-                "VanaraFleetsOps — URGENT: Fleet Vehicle Licences Have Expired",
+                f"{_b['system_name']} — URGENT: Fleet Vehicle Licences Have Expired",
                 html, admins
             )
             self.stdout.write(self.style.SUCCESS("  ✓ Fleet licence EXPIRED alert sent"))
@@ -346,6 +382,7 @@ class Command(BaseCommand):
 
     def _monthly_fuel_reminder(self, today, logo):
         from vehicles.models import Vehicle, MonthlyFuelDismissal
+        _b = _brand()
 
         # Only send on the 1st of the month (or if forced)
         dismissed_ids = MonthlyFuelDismissal.objects.filter(
@@ -406,7 +443,7 @@ class Command(BaseCommand):
 
         html = _email_wrapper(logo, "Monthly Fuel Reminder", body)
         _send(
-            f"VanaraFleetsOps — Monthly Fuel Reminder: {pending.count()} Vehicle(s) Pending ({today.strftime('%B %Y')})",
+            f"{_b['system_name']} — Monthly Fuel Reminder: {pending.count()} Vehicle(s) Pending ({today.strftime('%B %Y')})",
             html, recipients
         )
         self.stdout.write(self.style.SUCCESS(f"  ✓ Monthly fuel reminder sent to {len(recipients)} user(s) — {pending.count()} vehicles pending"))

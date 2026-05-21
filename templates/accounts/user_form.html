@@ -32,8 +32,11 @@
         </div>
       </div>
       {% else %}
-      <div style="background:var(--surface-2);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1.25rem;font-size:.83rem;color:var(--text-muted);">
-        A default password (<strong>Neu@12345</strong>) will be set automatically. The user will be prompted to change it on first login.
+      <div style="background:rgba(13,106,158,.08);border:1px solid rgba(13,106,158,.18);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1.25rem;font-size:.83rem;color:var(--text);display:flex;gap:.6rem;align-items:flex-start;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:.15rem;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <div>
+          An invitation email will be sent to the address below. The user will have <strong>24 hours</strong> to click the link and set their own password. No default password is set.
+        </div>
       </div>
       {% endif %}
 
@@ -108,17 +111,34 @@
 
       {% if obj %}
       <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
-        <div class="fw-600" style="font-size:.83rem;margin-bottom:.5rem;color:var(--text-muted);">Password Reset</div>
+        <div class="fw-600" style="font-size:.83rem;margin-bottom:.5rem;color:var(--text-muted);">Account Recovery</div>
         <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.75rem;">
-          Resets the user's password to <strong>Neu@12345</strong>. They will be forced to change it on next login.
+          Send a fresh invitation email. The user's current password (if any) will be cleared and they will set a new one via the link. The link expires in 24 hours.
         </p>
-        <form method="post" onsubmit="return confirm('Reset password for {{ obj.full_name }} to default?');">
+        <form method="post" onsubmit="return confirm('Send a new invitation to {{ obj.email }}? Their current password will be cleared.');" style="margin-bottom:1rem;">
           {% csrf_token %}
-          <button type="submit" name="action" value="reset_password" class="btn btn-outline btn-sm"
-            style="border-color:var(--danger);color:var(--danger);">
-            Reset to Default Password
+          <button type="submit" name="action" value="resend_invite" class="btn btn-outline btn-sm"
+            style="border-color:var(--info);color:var(--info);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:.3rem;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Resend Invitation
           </button>
         </form>
+
+        <details style="margin-top:.5rem;">
+          <summary style="cursor:pointer;font-size:.75rem;color:var(--text-muted);user-select:none;">Emergency: set default password (use only if email is unavailable)</summary>
+          <div style="margin-top:.5rem;padding:.75rem;background:var(--surface-2);border-radius:6px;font-size:.78rem;color:var(--text-muted);">
+            <p style="margin-bottom:.6rem;">
+              The user will be forced to change it on next login. Use only if the user cannot receive email.
+            </p>
+            <form method="post" onsubmit="return confirm('Set default password for {{ obj.full_name }}? They must change it on next login.');">
+              {% csrf_token %}
+              <button type="submit" name="action" value="reset_password" class="btn btn-outline btn-sm"
+                style="border-color:var(--danger);color:var(--danger);">
+                Set Default Password
+              </button>
+            </form>
+          </div>
+        </details>
       </div>
       {% endif %}
 

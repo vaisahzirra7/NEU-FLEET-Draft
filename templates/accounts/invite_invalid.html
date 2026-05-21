@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation Issue — {{ brand.system_name }}</title>
+  {% load static %}
+  {% if brand.favicon_url %}<link rel="icon" href="{{ brand.favicon_url }}">{% endif %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body { min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:var(--font); background:var(--bg); padding:2rem; }
+    .card { max-width:480px; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:2.5rem 2rem; text-align:center; box-shadow:var(--shadow); }
+    .icon { width:64px; height:64px; background:var(--danger-bg); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem; color:var(--danger); }
+    h1 { font-size:1.3rem; font-weight:700; color:var(--text); margin-bottom:.6rem; letter-spacing:-.01em; }
+    p { font-size:.88rem; color:var(--text-muted); line-height:1.7; margin-bottom:1.25rem; }
+    .email-tag { display:inline-block; background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:.25rem .7rem; font-size:.78rem; color:var(--text); font-family:'Courier New', monospace; }
+    a.btn { display:inline-block; padding:.7rem 1.5rem; background:var(--navy); color:#fff; text-decoration:none; border-radius:var(--radius); font-size:.88rem; font-weight:600; margin-top:.5rem; }
+    a.btn:hover { background:var(--navy-mid); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h1>This invitation can't be used</h1>
+    <p>{{ reason }}</p>
+    {% if user_email %}
+    <p>Account: <span class="email-tag">{{ user_email }}</span></p>
+    {% endif %}
+    <a href="{% url 'accounts:login' %}" class="btn">Go to Sign In</a>
+  </div>
+</body>
+</html>

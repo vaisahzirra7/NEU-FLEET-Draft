@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In — VanaraFleetsOps</title>
+  <title>Sign In — {{ brand.system_name }}</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/main.css' %}">
   <style>
@@ -376,8 +376,8 @@
         </svg>
       </div>
       <div>
-        <div class="left-brand-name">VanaraFleetsOps</div>
-        <div class="left-brand-sub">North-Eastern University, Gombe</div>
+        <div class="left-brand-name">{{ brand.system_name }}</div>
+        <div class="left-brand-sub">{{ brand.institution_name }}</div>
       </div>
     </div>
 
@@ -415,7 +415,7 @@
     </div>
 
     <div class="left-footer">
-      &copy; {% now "Y" %} North-Eastern University, Gombe &nbsp;·&nbsp; Fleet Management System
+      &copy; {% now "Y" %} {{ brand.institution_subtitle|safe }}
     </div>
 
   </div>
@@ -434,8 +434,8 @@
             <circle cx="18.5" cy="18.5" r="2.5"/>
           </svg>
         </div>
-        <div class="mobile-brand-name">VanaraFleetsOps</div>
-        <div class="mobile-brand-sub">North-Eastern University, Gombe<br>Fleet Management System</div>
+        <div class="mobile-brand-name">{{ brand.system_name }}</div>
+        <div class="mobile-brand-sub">{{ brand.institution_subtitle|safe }}</div>
       </div>
 
       <!-- Mobile-only white card wrapping the form -->

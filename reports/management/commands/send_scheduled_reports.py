@@ -20,8 +20,41 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _brand_from_email():
+    """Resolve the From-address. Prefer the editable SystemSettings value;
+    fall back to Django's DEFAULT_FROM_EMAIL if the row hasn't been created
+    yet (e.g. during initial migrate)."""
+    return _brand().get("email_from")
+
+
+def _brand():
+    """
+    Returns {system_name, institution_name, institution_subtitle, email_from}
+    from SystemSettings, with defaults if anything is missing. Safe to call
+    repeatedly — the underlying singleton is one indexed lookup.
+    """
+    defaults = {
+        "system_name":          "VanaraFleetsOps",
+        "institution_name":     "VanaraFleetsOps",
+        "institution_subtitle": "North-Eastern University, Gombe  ·  FMS",
+        "email_from":           getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+    }
+    try:
+        from system_settings.models import SystemSettings
+        s = SystemSettings.get()
+        return {
+            "system_name":          s.system_name          or defaults["system_name"],
+            "institution_name":     s.institution_name     or defaults["institution_name"],
+            "institution_subtitle": s.institution_subtitle or defaults["institution_subtitle"],
+            "email_from":           s.email_from           or defaults["email_from"],
+        }
+    except Exception:
+        return defaults
+
+
 def _email_wrapper(title, body_html, footer=""):
     """Wrap content in the branded email shell."""
+    _b = _brand()
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -37,10 +70,10 @@ def _email_wrapper(title, body_html, footer=""):
         <!-- Header -->
         <tr>
           <td style="background:#0f2044;border-radius:16px 16px 0 0;padding:28px 36px;text-align:center;">
-            <img src="cid:neu_logo" alt="NEU Logo"
+            <img src="cid:neu_logo" alt="Logo"
               style="width:72px;height:72px;object-fit:contain;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;">
-            <div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;">VanaraFleetsOps</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:4px;">North-Eastern University, Gombe &nbsp;&middot;&nbsp; Fleet Management System</div>
+            <div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-.3px;">{_b['system_name']}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:4px;">{_b['institution_subtitle']}</div>
           </td>
         </tr>
 
@@ -54,7 +87,7 @@ def _email_wrapper(title, body_html, footer=""):
 
         <!-- Footer -->
         <tr><td style="background:#f4f6fa;border-radius:0 0 16px 16px;padding:18px 36px;text-align:center;font-size:11px;color:#8a96b3;">
-          {footer if footer else "This is an automated report from VanaraFleetsOps. Do not reply to this email."}
+          {footer if footer else f"This is an automated report from {_b['system_name']}. Do not reply to this email."}
         </td></tr>
 
       </table>
@@ -65,12 +98,14 @@ def _email_wrapper(title, body_html, footer=""):
 
 def _send(subject, html, recipients):
     """Send an HTML email to a list of recipients."""
+    from system_settings.mail import get_mail_connection
     plain = "Please view this email in an HTML-capable email client."
     msg = EmailMultiAlternatives(
         subject=subject,
         body=plain,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+        from_email=_brand_from_email(),
         to=recipients,
+        connection=get_mail_connection(),
     )
     msg.attach_alternative(html, "text/html")
     
@@ -142,6 +177,7 @@ class Command(BaseCommand):
             _vehicle_spending_excel, _fleet_summary_excel,
             _monthly_expense_excel, _coupon_report_excel,
             _maintenance_excel, _vendor_excel,
+            _generator_spending_excel,
         )
         from vehicles.models import Vehicle
         from drivers.models import Driver
@@ -171,6 +207,12 @@ class Command(BaseCommand):
                 gm   = sum(r["maint_cost"] for r in rows)
                 gt   = sum(r["total"] for r in rows)
                 resp = _vehicle_spending_excel(rows, date_from, date_to, gf, gm, gt)
+            elif rt == "generator_spending":
+                rows = self._generator_rows(date_from, date_to)
+                gf   = sum(r["fuel_cost"] for r in rows)
+                gm   = sum(r["maint_cost"] for r in rows)
+                gt   = sum(r["total"] for r in rows)
+                resp = _generator_spending_excel(rows, date_from, date_to, gf, gm, gt)
             elif rt == "fleet_summary":
                 ctx  = self._fleet_summary_ctx(date_from, date_to)
                 resp = _fleet_summary_excel(ctx)
@@ -206,12 +248,13 @@ class Command(BaseCommand):
             import importlib
             views_mod = importlib.import_module("reports.views")
             view_map  = {
-                "vehicle_spending": "vehicle_spending",
-                "fleet_summary":    "fleet_summary",
-                "monthly_expense":  "monthly_expense",
-                "coupon_report":    "coupon_report",
-                "maintenance":      "maintenance_report",
-                "vendor":           "vendor_report",
+                "vehicle_spending":   "vehicle_spending",
+                "generator_spending": "generator_spending",
+                "fleet_summary":      "fleet_summary",
+                "monthly_expense":    "monthly_expense",
+                "coupon_report":      "coupon_report",
+                "maintenance":        "maintenance_report",
+                "vendor":             "vendor_report",
             }
             view_fn_name = view_map.get(rt)
             if not view_fn_name:
@@ -242,25 +285,28 @@ class Command(BaseCommand):
 
     ### Automated email sending helper for schedules — similar to the one in views.py but with a month label and no sent_by.
     def _send_email(self, schedule, data, filename, mime_type, today):
+        _b = _brand()
         month_label = today.replace(day=1) - timedelta(days=1)
         subject = (
-            f"VanaraFleetsOps — {schedule.get_report_type_display()} "
+            f"{_b['system_name']} — {schedule.get_report_type_display()} "
             f"({month_label.strftime('%B %Y')})"
         )
         body = (
             f"Hello!\n\n"
             f"Please find attached the scheduled {schedule.get_report_type_display()} "
             f"report for {month_label.strftime('%B %Y')}.\n\n"
-            f"This report was automatically generated and sent by VanaraFleetsOps.\n\n"
+            f"This report was automatically generated and sent by {_b['system_name']}.\n\n"
             f"Best regards,\n\n"
             f"— Fleet Management System\n"
-            f"North-Eastern University, Gombe"
+            f"{_b['institution_name']}"
         )
+        from system_settings.mail import get_mail_connection
         msg = EmailMultiAlternatives(
             subject=subject,
             body=body,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+            from_email=_b['email_from'],
             to=schedule.recipient_list,
+            connection=get_mail_connection(),
         )
         msg.attach(filename, data, mime_type)
         msg.send()
@@ -280,6 +326,42 @@ class Command(BaseCommand):
             maint_count= MaintenanceRecord.objects.filter(vehicle=v, service_date__range=[df, dt]).count()
             if fuel_cost or maint_cost:
                 rows.append({"vehicle": v, "fuel_cost": fuel_cost, "maint_cost": maint_cost, "total": fuel_cost + maint_cost, "fuel_litres": fuel_litres, "maint_count": maint_count})
+        return rows
+
+    def _generator_rows(self, df, dt):
+        """
+        Per-generator spending rows for scheduled email exports.
+
+        Uses FuelLog (not FuelCoupon) for generator fuel cost — this matches
+        the interactive view at /reports/generators/ so scheduled exports and
+        web view stay in sync.
+        """
+        from generators.models import Generator
+        from fuel_logs.models import FuelLog
+        from maintenance.models import MaintenanceRecord
+        from django.db.models import Sum, Count
+        rows = []
+        for g in Generator.objects.all().order_by("tag"):
+            fuel  = FuelLog.objects.filter(
+                generator=g, fuel_date__range=[df, dt]
+            ).aggregate(litres=Sum("actual_litres"), cost=Sum("actual_cost"), count=Count("id"))
+            maint = MaintenanceRecord.objects.filter(
+                generator=g, service_date__range=[df, dt]
+            ).aggregate(cost=Sum("total_cost"), count=Count("id"))
+            fuel_cost  = fuel["cost"]  or Decimal(0)
+            maint_cost = maint["cost"] or Decimal(0)
+            total      = fuel_cost + maint_cost
+            if total > 0:
+                rows.append({
+                    "generator":   g,
+                    "fuel_litres": fuel["litres"] or 0,
+                    "fuel_cost":   fuel_cost,
+                    "fuel_count":  fuel["count"],
+                    "maint_cost":  maint_cost,
+                    "maint_count": maint["count"],
+                    "total":       total,
+                })
+        rows.sort(key=lambda x: x["total"], reverse=True)
         return rows
 
     def _fleet_summary_ctx(self, df, dt):

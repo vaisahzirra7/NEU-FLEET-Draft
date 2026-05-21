@@ -60,28 +60,44 @@
                 <tr style="border-bottom:1px solid var(--border);">
                   <td style="padding:.55rem .75rem;font-weight:500;">{{ row.label }}</td>
                   <td style="text-align:center;padding:.55rem .5rem;">
-                    <input type="checkbox" name="perm_{{ row.key }}_read"
-                      style="width:16px;height:16px;cursor:pointer;"
-                      {% if obj and obj.is_system_role %}disabled{% endif %}
-                      {% if row.can_read %}checked{% endif %}>
+                    {% if row.supports_read %}
+                      <input type="checkbox" name="perm_{{ row.key }}_read"
+                        style="width:16px;height:16px;cursor:pointer;"
+                        {% if obj and obj.is_system_role %}disabled{% endif %}
+                        {% if row.can_read %}checked{% endif %}>
+                    {% else %}
+                      <span style="color:var(--text-muted);font-size:.85rem;">—</span>
+                    {% endif %}
                   </td>
                   <td style="text-align:center;padding:.55rem .5rem;">
-                    <input type="checkbox" name="perm_{{ row.key }}_write"
-                      style="width:16px;height:16px;cursor:pointer;"
-                      {% if obj and obj.is_system_role %}disabled{% endif %}
-                      {% if row.can_write %}checked{% endif %}>
+                    {% if row.supports_write %}
+                      <input type="checkbox" name="perm_{{ row.key }}_write"
+                        style="width:16px;height:16px;cursor:pointer;"
+                        {% if obj and obj.is_system_role %}disabled{% endif %}
+                        {% if row.can_write %}checked{% endif %}>
+                    {% else %}
+                      <span style="color:var(--text-muted);font-size:.85rem;">—</span>
+                    {% endif %}
                   </td>
                   <td style="text-align:center;padding:.55rem .5rem;">
-                    <input type="checkbox" name="perm_{{ row.key }}_edit"
-                      style="width:16px;height:16px;cursor:pointer;"
-                      {% if obj and obj.is_system_role %}disabled{% endif %}
-                      {% if row.can_edit %}checked{% endif %}>
+                    {% if row.supports_edit %}
+                      <input type="checkbox" name="perm_{{ row.key }}_edit"
+                        style="width:16px;height:16px;cursor:pointer;"
+                        {% if obj and obj.is_system_role %}disabled{% endif %}
+                        {% if row.can_edit %}checked{% endif %}>
+                    {% else %}
+                      <span style="color:var(--text-muted);font-size:.85rem;">—</span>
+                    {% endif %}
                   </td>
                   <td style="text-align:center;padding:.55rem .5rem;">
-                    <input type="checkbox" name="perm_{{ row.key }}_delete"
-                      style="width:16px;height:16px;cursor:pointer;"
-                      {% if obj and obj.is_system_role %}disabled{% endif %}
-                      {% if row.can_delete %}checked{% endif %}>
+                    {% if row.supports_delete %}
+                      <input type="checkbox" name="perm_{{ row.key }}_delete"
+                        style="width:16px;height:16px;cursor:pointer;"
+                        {% if obj and obj.is_system_role %}disabled{% endif %}
+                        {% if row.can_delete %}checked{% endif %}>
+                    {% else %}
+                      <span style="color:var(--text-muted);font-size:.85rem;">—</span>
+                    {% endif %}
                   </td>
                   <td style="text-align:center;padding:.55rem .5rem;">
                     {% if row.supports_approve %}
@@ -98,12 +114,14 @@
               </tbody>
             </table>
           </div>
-          <div style="font-size:.78rem;color:var(--text-muted);margin-top:.6rem;">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-top:.6rem;line-height:1.6;">
             <strong>Read</strong> — view records &nbsp;|&nbsp;
             <strong>Write</strong> — create new &nbsp;|&nbsp;
             <strong>Edit</strong> — modify existing &nbsp;|&nbsp;
             <strong>Delete</strong> — remove records &nbsp;|&nbsp;
-            <strong>Approve</strong> — authorise pending records (where applicable)
+            <strong>Approve</strong> — authorise pending records
+            <br>
+            <span style="color:var(--text-muted);">A dash (—) means that permission doesn't apply to that module (e.g. dashboards and reports are read-only by nature).</span>
           </div>
         </div>
 

@@ -4,17 +4,19 @@ from django.db import models
 class ReportSchedule(models.Model):
     """Stores scheduled report email deliveries."""
 
-    REPORT_FLEET_SUMMARY  = "fleet_summary"
-    REPORT_VEHICLE_SPEND  = "vehicle_spending"
-    REPORT_MONTHLY_EXPENSE= "monthly_expense"
-    REPORT_COUPON         = "coupon_report"
-    REPORT_MAINTENANCE    = "maintenance"
-    REPORT_VENDOR         = "vendor"
+    REPORT_FLEET_SUMMARY    = "fleet_summary"
+    REPORT_VEHICLE_SPEND    = "vehicle_spending"
+    REPORT_GENERATOR_SPEND  = "generator_spending"
+    REPORT_MONTHLY_EXPENSE  = "monthly_expense"
+    REPORT_COUPON           = "coupon_report"
+    REPORT_MAINTENANCE      = "maintenance"
+    REPORT_VENDOR           = "vendor"
 
     REPORT_CHOICES = [
-        (REPORT_VEHICLE_SPEND,   "Per-Vehicle Spending"),
-        (REPORT_MONTHLY_EXPENSE, "Monthly Expense"),
-        (REPORT_MAINTENANCE,     "Maintenance History"),
+        (REPORT_VEHICLE_SPEND,    "Per-Vehicle Spending"),
+        (REPORT_GENERATOR_SPEND,  "Per-Generator Spending"),
+        (REPORT_MONTHLY_EXPENSE,  "Monthly Expense"),
+        (REPORT_MAINTENANCE,      "Maintenance History"),
     ]
 
     FORMAT_PDF  = "pdf"

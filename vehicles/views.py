@@ -259,10 +259,13 @@ def fleet_licence_update(request):
 @login_required
 def dismiss_fuel_reminder(request, pk):
     """Dismiss the monthly fuel reminder for a vehicle for the current month."""
+    if not request.user.has_module_perm("vehicles", "edit"):
+        return HttpResponseForbidden()
     from .models import MonthlyFuelDismissal
     from django.utils import timezone
     if request.method == "POST":
-        vehicle = get_object_or_404(Vehicle, pk=pk)
+        # Dept-scope: a dept-restricted user can only dismiss their own dept's vehicles
+        vehicle = get_object_or_404(Vehicle, pk=pk, **dept_filter(request.user))
         now = timezone.now()
         MonthlyFuelDismissal.objects.get_or_create(
             vehicle=vehicle, month=now.month, year=now.year,

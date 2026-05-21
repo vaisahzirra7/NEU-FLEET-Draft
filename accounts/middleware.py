@@ -19,6 +19,12 @@ class LoginRequiredMiddleware:
         "/auth/forgot-password/confirm/",
     }
 
+    # Path prefixes that bypass auth (variable URL segments like invite tokens).
+    EXEMPT_PREFIXES = (
+        "/auth/invite/",
+        "/media/",
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -29,7 +35,7 @@ class LoginRequiredMiddleware:
             return self.get_response(request)
 
         if not request.user.is_authenticated:
-            if path not in self.EXEMPT:
+            if path not in self.EXEMPT and not any(path.startswith(p) for p in self.EXEMPT_PREFIXES):
                 return redirect(f"{settings.LOGIN_URL}?next={path}")
             return self.get_response(request)
 
@@ -37,6 +43,7 @@ class LoginRequiredMiddleware:
         if (
             getattr(request.user, "must_change_password", False)
             and path not in self.EXEMPT
+            and not any(path.startswith(p) for p in self.EXEMPT_PREFIXES)
         ):
             return redirect(CHANGE_PASSWORD_URL)
 

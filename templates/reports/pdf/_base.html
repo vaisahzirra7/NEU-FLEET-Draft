@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block doc_title %}Report{% endblock %} — VanaraFleetsOps</title>
+<title>{% block doc_title %}Report{% endblock %} — {{ brand.system_name }}</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -313,7 +313,7 @@
     Print / Save as PDF
   </button>
   <a href="{% block back_url %}{% endblock %}" class="btn-back">&#8592; Back to Report</a>
-  <span class="ctrl-title">{% block page_label %}Report{% endblock %} &nbsp;&mdash;&nbsp; VanaraFleetsOps</span>
+  <span class="ctrl-title">{% block page_label %}Report{% endblock %} &nbsp;&mdash;&nbsp; {{ brand.system_name }}</span>
 </div>
 
 <!-- Document -->
@@ -327,7 +327,7 @@
           <img src="/static/images/neu_logo.png" alt="NEU Logo" style="width:44px;height:44px;object-fit:contain;">
         </div>
         <div>
-          <div class="brand-name">North-Eastern University, Gombe</div>
+          <div class="brand-name">{{ brand.institution_name }}</div>
           <div class="brand-sub">FLEET MANAGEMENT SYSTEM &nbsp;&bull;&nbsp; FMS</div>
         </div>
       </div>
@@ -345,7 +345,7 @@
     
     <div class="header-meta">
       <div class="meta-item">Period: <strong>{{ date_from|date:"j M Y" }} &mdash; {{ date_to|date:"j M Y" }}</strong></div>
-      <div class="meta-item">Prepared by: <strong>VanaraFleetsOps</strong></div>
+      <div class="meta-item">Prepared by: <strong>{{ brand.system_name }}</strong></div>
       <div class="meta-item" style="margin-left:auto;">Confidential &mdash; Internal Use Only</div>
     </div>
   </div>
@@ -354,7 +354,7 @@
 
   <!-- Footer -->
   <div class="doc-footer">
-    <div><strong>VanaraFleetsOps</strong> &nbsp;&middot;&nbsp; North-Eastern University, Gombe &nbsp;&middot;&nbsp; Fleet Management System (FMS)</div>
+    <div><strong>{{ brand.system_name }}</strong> &nbsp;&middot;&nbsp; {{ brand.institution_name }} &nbsp;&middot;&nbsp; Fleet Management System (FMS)</div>
     <div>Confidential &mdash; For Internal Use Only</div>
   </div>
 

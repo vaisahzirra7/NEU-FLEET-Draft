@@ -372,6 +372,8 @@ def detail_view(request, pk):
 
 @login_required
 def print_slip(request, pk):
+    if not request.user.has_module_perm("coupons", "read"):
+        return HttpResponseForbidden()
     coupon = get_object_or_404(FuelCoupon, dept_filter(request.user), pk=pk)
     if not coupon.is_printable:
         messages.error(
@@ -385,6 +387,11 @@ def print_slip(request, pk):
 
 @login_required
 def lookup_ajax(request):
+    # This endpoint is the coupon-redemption lookup from the fuel-log form.
+    # Restrict to users who can actually create fuel logs — otherwise it's
+    # an information disclosure (any logged-in user could enumerate coupons).
+    if not request.user.has_module_perm("fuel_logs", "write"):
+        return JsonResponse({"error": "Permission denied."}, status=403)
     q = request.GET.get("q", "").strip().upper()
     if not q:
         return JsonResponse({"error": "Enter a coupon ID or verification code."})

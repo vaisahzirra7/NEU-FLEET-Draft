@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome — {{ brand.system_name }}</title>
+  {% load static %}
+  {% if brand.favicon_url %}<link rel="icon" href="{{ brand.favicon_url }}">{% endif %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body { min-height:100vh; display:grid; grid-template-columns:1fr 1fr; font-family:var(--font); background:var(--bg); }
+    .login-left { background:var(--navy); display:flex; flex-direction:column; justify-content:space-between; padding:2.5rem; position:relative; overflow:hidden; }
+    .login-left::before { content:''; position:absolute; top:-100px; right:-100px; width:380px; height:380px; border-radius:50%; border:60px solid rgba(255,255,255,.04); pointer-events:none; }
+    .login-left::after { content:''; position:absolute; bottom:-80px; left:-80px; width:300px; height:300px; border-radius:50%; border:50px solid rgba(232,160,32,.07); pointer-events:none; }
+    .left-brand { display:flex; align-items:center; gap:.8rem; position:relative; z-index:1; }
+    .left-brand-icon { width:40px; height:40px; background:var(--amber); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .left-brand-icon img { width:100%; height:100%; object-fit:contain; }
+    .left-brand-name { font-size:1rem; font-weight:700; color:#fff; line-height:1.2; }
+    .left-brand-sub { font-size:.68rem; color:rgba(255,255,255,.38); margin-top:.1rem; }
+    .left-hero { position:relative; z-index:1; }
+    .left-hero-icon { width:72px; height:72px; background:rgba(232,160,32,.15); border:1px solid rgba(232,160,32,.25); border-radius:18px; display:flex; align-items:center; justify-content:center; margin-bottom:1.75rem; }
+    .left-hero h2 { font-size:1.75rem; font-weight:700; color:#fff; line-height:1.25; margin-bottom:.85rem; letter-spacing:-.02em; }
+    .left-hero h2 span { color:var(--amber-light); }
+    .left-hero p { font-size:.85rem; color:rgba(255,255,255,.5); line-height:1.7; max-width:320px; }
+    .left-footer { position:relative; z-index:1; font-size:.7rem; color:rgba(255,255,255,.2); }
+    .login-right { display:flex; align-items:center; justify-content:center; padding:2.5rem; background:var(--bg); }
+    .login-form-wrap { width:100%; max-width:380px; }
+    .login-form-wrap h1 { font-size:1.4rem; font-weight:700; color:var(--text); margin-bottom:.35rem; letter-spacing:-.02em; }
+    .login-form-wrap .login-sub { font-size:.82rem; color:var(--text-muted); margin-bottom:1.75rem; }
+    .user-card { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:.85rem 1rem; margin-bottom:1.25rem; font-size:.82rem; display:flex;align-items:center;gap:.6rem; }
+    .user-card .avatar { width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.85rem; }
+    .form-group { margin-bottom:1.1rem; }
+    .form-label { display:block; font-size:.77rem; font-weight:600; color:var(--text); margin-bottom:.35rem; }
+    .form-control { width:100%; padding:.6rem .9rem; border:1.5px solid var(--border-dark); border-radius:var(--radius); font-size:.88rem; font-family:var(--font); color:var(--text); background:var(--surface); transition:border-color .15s, box-shadow .15s; outline:none; }
+    .form-control:focus { border-color:var(--navy-light); box-shadow:0 0 0 3px rgba(26,50,96,.1); }
+    .btn-login { width:100%; padding:.7rem; background:var(--navy); color:#fff; border:none; border-radius:var(--radius); font-size:.9rem; font-weight:600; font-family:var(--font); cursor:pointer; transition:background .15s; display:flex; align-items:center; justify-content:center; gap:.6rem; margin-top:.25rem; }
+    .btn-login:hover { background:var(--navy-mid); }
+    .login-error { display:flex; align-items:center; gap:.65rem; background:var(--danger-bg); border:1px solid #f0b8b3; border-radius:var(--radius); padding:.75rem .9rem; margin-bottom:1.1rem; font-size:.82rem; color:var(--danger); }
+    .pw-hint { font-size:.73rem; color:var(--text-muted); margin-top:.3rem; }
+    @media (max-width:768px) { body { grid-template-columns:1fr; } .login-left { display:none; } .login-right { padding:2rem 1.5rem; } }
+  </style>
+</head>
+<body>
+  <div class="login-left">
+    <div class="left-brand">
+      <div class="left-brand-icon">
+        {% if brand.logo_url %}
+          <img src="{{ brand.logo_url }}" alt="{{ brand.institution_name }}">
+        {% else %}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f2044" stroke-width="2.5" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        {% endif %}
+      </div>
+      <div>
+        <div class="left-brand-name">{{ brand.system_name }}</div>
+        <div class="left-brand-sub">{{ brand.institution_name }}</div>
+      </div>
+    </div>
+    <div class="left-hero">
+      <div class="left-hero-icon">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#e8a020" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <h2>Welcome <span>aboard!</span></h2>
+      <p>Pick a strong password to activate your account. Once set, you'll be signed in automatically.</p>
+    </div>
+    <div class="left-footer">&copy; {% now "Y" %} {{ brand.institution_subtitle|safe }}</div>
+  </div>
+
+  <div class="login-right">
+    <div class="login-form-wrap">
+      <h1>Set Your Password</h1>
+      <p class="login-sub">Your invitation is valid — choose a password to finish setting up your account.</p>
+
+      <div class="user-card">
+        <div class="avatar">{{ invite.user.full_name|slice:":1"|upper }}</div>
+        <div>
+          <div style="font-weight:600;color:var(--text);">{{ invite.user.full_name }}</div>
+          <div style="color:var(--text-muted);font-size:.76rem;">{{ invite.user.email }}</div>
+        </div>
+      </div>
+
+      {% if error %}
+      <div class="login-error">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate autocomplete="off">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password" class="form-control" required minlength="8" autofocus>
+          <div class="pw-hint">At least 8 characters. Use letters, numbers, and a symbol if possible.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <input type="password" name="confirm_password" class="form-control" required minlength="8">
+        </div>
+        <button type="submit" class="btn-login">
+          Set Password &amp; Sign In
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </form>
+
+      <div style="margin-top:1.5rem;font-size:.72rem;color:var(--text-muted);text-align:center;">
+        This link expires at {{ invite.expires_at|date:"j M Y, H:i" }}.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

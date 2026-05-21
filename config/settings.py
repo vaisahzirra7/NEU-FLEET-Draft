@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'reports',
     'audit',
     'trips',
+    'system_settings',
 ]
 
 MIDDLEWARE = [
@@ -63,6 +64,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'system_settings.context_processors.branding',
             ],
         },
     },
@@ -117,6 +119,16 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 MEDIA_URL  = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ── System settings encryption ─────────────────────────────────────────
+# Used to encrypt SMTP password (and any future secrets) stored in the
+# system_settings DB row. If not set, falls back to a SECRET_KEY-derived
+# key — that works but is weaker because rotating SECRET_KEY would also
+# invalidate stored secrets. Generate a dedicated key with:
+#     from cryptography.fernet import Fernet
+#     print(Fernet.generate_key().decode())
+# Then set it here (or move to .env / environment variable).
+# SETTINGS_ENCRYPTION_KEY = "REPLACE_ME_WITH_A_FERNET_KEY"
 
 # ── Default PK ────────────────────────────────────────────────
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

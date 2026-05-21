@@ -70,6 +70,8 @@ class RoleModulePermission(models.Model):
         ("audit",        "Audit Trail"),
         ("trips",        "Trips"),
         ("destinations", "Destinations"),
+        ("settings",       "System Settings"),
+        ("settings_email", "SMTP / Email Settings"),
     ]
 
     role   = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="permissions")
@@ -216,3 +218,68 @@ class PasswordResetOTP(models.Model):
         if self.used:
             return False
         return timezone.now() < self.created_at + timedelta(minutes=15)
+
+
+class UserInvite(models.Model):
+    """
+    Magic-link invite for new user activation.
+
+    Workflow:
+      1. Admin creates a user via /auth/users/create/ — user account exists
+         but has no usable password (set_unusable_password() at create-time).
+      2. A UserInvite row is created with a random 48-char token.
+      3. An email is sent containing /auth/invite/<token>/.
+      4. User clicks the link within the expiry window (24 hours by default),
+         lands on a "Set Your Password" page, picks a password.
+      5. UserInvite.used is flipped to True; the user is auto-logged in.
+
+    Resend semantics:
+      - "Resend Invite" on the user detail page creates a NEW UserInvite row
+        with a fresh token. Older un-used invites for the same user are
+        marked used to prevent two valid tokens floating around.
+      - Old (used or expired) rows are kept for audit trail.
+    """
+    EXPIRY_HOURS = 24
+
+    user       = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="invites")
+    token      = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="+",
+        help_text="Admin user who issued this invite (None if system-generated).",
+    )
+    used       = models.BooleanField(default=False)
+    used_at    = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "user_invites"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Invite for {self.user.email} ({'used' if self.used else 'pending'})"
+
+    def is_valid(self):
+        """Token is valid if not used and not yet expired."""
+        from django.utils import timezone
+        from datetime import timedelta
+        if self.used:
+            return False
+        return timezone.now() < self.created_at + timedelta(hours=self.EXPIRY_HOURS)
+
+    @property
+    def expires_at(self):
+        from datetime import timedelta
+        return self.created_at + timedelta(hours=self.EXPIRY_HOURS)
+
+    @classmethod
+    def issue(cls, user, created_by=None):
+        """
+        Create a new invite for `user`, invalidating any pending older invites.
+        Returns the new invite (caller is responsible for sending the email).
+        """
+        import secrets
+        # Invalidate any pending invites — only one valid token at a time
+        cls.objects.filter(user=user, used=False).update(used=True)
+        token = secrets.token_urlsafe(48)[:64]  # url-safe, ~256 bits of entropy
+        return cls.objects.create(user=user, token=token, created_by=created_by)

@@ -1400,6 +1400,31 @@ def _build_report_instant(schedule, df, dt):
                              "maint_count": mc.count()})
         return rows
 
+    def generator_rows():
+        """
+        Per-generator spending for instant-send reports.
+
+        Uses FuelLog.actual_cost for fuel (matches the interactive view at
+        /reports/generators/). Generator coupons aren't suitable here because
+        a generator coupon's `total_value` reflects issued amount, not actual
+        consumption.
+        """
+        from generators.models import Generator
+        rows = []
+        for g in Generator.objects.all().order_by("tag"):
+            fl = FuelLog.objects.filter(generator=g, fuel_date__range=[df,dt])
+            mc = MaintenanceRecord.objects.filter(generator=g, service_date__range=[df,dt])
+            fuel_cost   = fl.aggregate(t=Sum("actual_cost"))["t"]   or Decimal(0)
+            fuel_litres = fl.aggregate(t=Sum("actual_litres"))["t"] or Decimal(0)
+            maint_cost  = mc.aggregate(t=Sum("total_cost"))["t"]    or Decimal(0)
+            total       = fuel_cost + maint_cost
+            if total:
+                rows.append({"generator": g, "fuel_cost": fuel_cost, "maint_cost": maint_cost,
+                             "total": total, "fuel_litres": fuel_litres,
+                             "fuel_count": fl.count(), "maint_count": mc.count()})
+        rows.sort(key=lambda x: x["total"], reverse=True)
+        return rows
+
     if fmt == "xlsx":
         if rt == "vehicle_spending":
             rows = vehicle_rows()
@@ -1407,6 +1432,12 @@ def _build_report_instant(schedule, df, dt):
             gm = sum(r["maint_cost"] for r in rows)
             gt = sum(r["total"] for r in rows)
             resp = _vehicle_spending_excel(rows, df, dt, gf, gm, gt)
+        elif rt == "generator_spending":
+            rows = generator_rows()
+            gf = sum(r["fuel_cost"] for r in rows)
+            gm = sum(r["maint_cost"] for r in rows)
+            gt = sum(r["total"] for r in rows)
+            resp = _generator_spending_excel(rows, df, dt, gf, gm, gt)
         elif rt == "fleet_summary":
             coupons_qs = FuelCoupon.objects.filter(status="redeemed", issue_datetime__date__range=[df,dt])
             maint_qs   = MaintenanceRecord.objects.filter(service_date__range=[df,dt])
@@ -1470,12 +1501,13 @@ def _build_report_instant(schedule, df, dt):
         from django.template.loader import render_to_string
 
         template_map = {
-            "vehicle_spending": "reports/pdf/vehicle_spending.html",
-            "fleet_summary":    "reports/pdf/fleet_summary.html",
-            "monthly_expense":  "reports/pdf/monthly_expense.html",
-            "coupon_report":    "reports/pdf/coupon_report.html",
-            "maintenance":      "reports/pdf/maintenance_report.html",
-            "vendor":           "reports/pdf/vendor_report.html",
+            "vehicle_spending":   "reports/pdf/vehicle_spending.html",
+            "generator_spending": "reports/pdf/generator_spending.html",
+            "fleet_summary":      "reports/pdf/fleet_summary.html",
+            "monthly_expense":    "reports/pdf/monthly_expense.html",
+            "coupon_report":      "reports/pdf/coupon_report.html",
+            "maintenance":        "reports/pdf/maintenance_report.html",
+            "vendor":             "reports/pdf/vendor_report.html",
         }
         template = template_map.get(rt)
         if not template:
@@ -1485,6 +1517,12 @@ def _build_report_instant(schedule, df, dt):
         ctx = {"date_from": df, "date_to": dt}
         if rt == "vehicle_spending":
             rows = vehicle_rows()
+            ctx.update({"rows": rows,
+                        "grand_fuel":  sum(r["fuel_cost"]  for r in rows),
+                        "grand_maint": sum(r["maint_cost"] for r in rows),
+                        "grand_total": sum(r["total"]       for r in rows)})
+        elif rt == "generator_spending":
+            rows = generator_rows()
             ctx.update({"rows": rows,
                         "grand_fuel":  sum(r["fuel_cost"]  for r in rows),
                         "grand_maint": sum(r["maint_cost"] for r in rows),
@@ -1534,19 +1572,34 @@ def _send_email_instant(schedule, data, filename, mime_type, df, dt, sent_by):
     """Send the built report via email with a custom period label."""
     from django.core.mail import EmailMultiAlternatives
     period_label = f"{df.strftime('%d %b %Y')} — {dt.strftime('%d %b %Y')}"
-    subject = f"VanaraFleetsOps — {schedule.get_report_type_display()} ({period_label})"
+
+    # Resolve branding for sender + signature
+    try:
+        from system_settings.models import SystemSettings
+        _brand = SystemSettings.get()
+        _from  = _brand.email_from or getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng")
+        _sig   = _brand.institution_name
+        _sys   = _brand.system_name
+    except Exception:
+        _from = getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng")
+        _sig  = "Fleet Management"
+        _sys  = "Fleet Management"
+
+    subject = f"{_sys} — {schedule.get_report_type_display()} ({period_label})"
     body = (
         f"Hello,\n\n"
         f"Please find attached the {schedule.get_report_type_display()} report "
         f"for the period {period_label}.\n\n"
         f"This report was sent manually by {sent_by}.\n\n"
         f"— Fleet Management System\n"
-        f"North-Eastern University, Gombe"
+        f"{_sig}"
     )
+    from system_settings.mail import get_mail_connection
     msg = EmailMultiAlternatives(
         subject=subject, body=body,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "fleet@neu.edu.ng"),
+        from_email=_from,
         to=schedule.recipient_list,
+        connection=get_mail_connection(),
     )
     msg.attach(filename, data, mime_type)
     msg.send()

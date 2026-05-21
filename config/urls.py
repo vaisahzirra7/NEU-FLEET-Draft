@@ -19,6 +19,7 @@ urlpatterns = [
     path("reports/",     include("reports.urls")),
     path("audit/",       include("audit.urls")),
     path("trips/",       include("trips.urls")),
+    path("settings/",    include("system_settings.urls")),
     path("",             lambda req: redirect("dashboard")),
 ]
 
