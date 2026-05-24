@@ -130,6 +130,7 @@ DATABASES = {
         "OPTIONS": {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "ssl": {"ssl-mode": "REQUIRED"},
         } if _env("DB_ENGINE", "django.db.backends.mysql").endswith("mysql") else {},
     }
 }
