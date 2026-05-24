@@ -313,23 +313,25 @@ def _build_perm_rows(modules, role=None):
     # here mean the admin can't grant the permission.
     DEFAULT_CAPS = {"read", "write", "edit", "delete"}
     MODULE_CAPABILITIES = {
-        "vehicles":       {"read", "write", "edit", "delete"},
-        "generators":     {"read", "write", "edit", "delete"},
-        "drivers":        {"read", "write", "edit", "delete"},
-        "coupons":        {"read", "write", "edit", "delete", "approve"},
-        "fuel_logs":      {"read", "write"},
-        "maintenance":    {"read", "write", "edit"},
-        "vendors":        {"read", "write", "edit", "delete"},
-        "reports":        {"read"},
-        "dashboard":      {"read"},
-        "users":          {"read", "write", "edit"},
-        "roles":          {"read", "write", "edit", "delete"},
-        "audit":          {"read"},
-        "trips":          {"read", "write", "edit"},
-        "destinations":   {"read", "write", "edit"},
-        "settings":       {"read", "edit"},
-        "settings_email": {"read", "edit"},
+        "vehicles":         {"read", "write", "edit", "delete"},
+        "generators":       {"read", "write", "edit", "delete"},
+        "drivers":          {"read", "write", "edit", "delete"},
+        "coupons":          {"read", "write", "edit", "delete", "approve"},
+        "fuel_logs":        {"read", "write"},
+        "maintenance":      {"read", "write", "edit"},
+        "vendors":          {"read", "write", "edit", "delete"},
         "station_deposits": {"read", "write", "delete"},
+        "reports":          {"read"},
+        "report_schedules": {"read", "write", "edit", "delete"},
+        "dashboard":        {"read"},
+        "users":            {"read", "write", "edit"},
+        "roles":            {"read", "write", "edit", "delete"},
+        "departments":      {"read", "write", "edit", "delete"},
+        "audit":            {"read"},
+        "trips":            {"read", "write", "edit"},
+        "destinations":     {"read", "write", "edit"},
+        "settings":         {"read", "edit"},
+        "settings_email":   {"read", "edit"},
     }
 
     rows = []
@@ -781,18 +783,21 @@ def role_edit(request, pk):
 # ── Department Management ─────────────────────────────────────
 @login_required
 def departments_list(request):
-    if not request.user.is_system_admin:
+    if not request.user.has_module_perm("departments", "read"):
         return HttpResponseForbidden()
 
     departments = Department.objects.all().order_by("name")
     return render(request, "accounts/departments_list.html", {
-        "departments": departments
+        "departments": departments,
+        "can_write":  request.user.has_module_perm("departments", "write"),
+        "can_edit":   request.user.has_module_perm("departments", "edit"),
+        "can_delete": request.user.has_module_perm("departments", "delete"),
     })
 
 
 @login_required
 def department_create(request):
-    if not request.user.is_system_admin:
+    if not request.user.has_module_perm("departments", "write"):
         return HttpResponseForbidden()
 
     if request.method == "POST":
@@ -823,7 +828,7 @@ def department_create(request):
 
 @login_required
 def department_edit(request, pk):
-    if not request.user.is_system_admin:
+    if not request.user.has_module_perm("departments", "edit"):
         return HttpResponseForbidden()
 
     dept = get_object_or_404(Department, pk=pk)

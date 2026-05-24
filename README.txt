@@ -1,89 +1,154 @@
 ================================================================================
-   Mobile Responsiveness — Phase 1
+   Permissions Overhaul — Add 3 modules, lock Super Admin role
 ================================================================================
 
-Five files. Adds:
-  - Global mobile CSS (page padding, filter bars wrap, headings shrink)
-  - The .table-responsive opt-in pattern (tables turn into stacked cards on phones)
-  - Pattern applied to: vehicles, drivers, vendors list pages
+Eight files. One data migration.
+
+This drop closes the gaps you identified in roles & permissions:
+
+  - Add 3 modules to the role grid: Departments, Report Schedules,
+    and Fuel Station Deposits (the third was an earlier slip on my part).
+  - Schedule actions (Edit / Send Now / Delete) now check the new
+    `report_schedules` module instead of `reports`.
+  - Departments page now permission-aware instead of Super-Admin-only.
+  - New system-locked "Super Admin" role created via migration.
+  - Assigning the Super Admin role to a user automatically grants
+    is_system_admin=True (single source of truth).
+  - Existing custom roles (Administrator, Quality Assurance, Transport
+    Officer) are NOT auto-modified — you'll need to grant the new
+    permissions manually if you want them.
 
 --------------------------------------------------------------------------------
 APPLY
 --------------------------------------------------------------------------------
 
 1. Stop runserver.
-2. Expand-Archive -Path .\mobile_responsive.zip -DestinationPath . -Force
+2. Expand-Archive -Path .\perms_overhaul.zip -DestinationPath . -Force
 3. Get-ChildItem -Path . -Recurse -Filter "__pycache__" -Directory | Remove-Item -Recurse -Force
-4. python manage.py runserver
-5. Hard-refresh browser.
+4. python manage.py migrate
+
+   You should see:
+     Applying accounts.0010_add_super_admin_role... OK
+
+5. python manage.py runserver
+6. Hard-refresh.
+
+What the migration does:
+  - Creates the "Super Admin" Role with is_system_role=True
+  - Grants it all 5 permissions on every module
+  - Assigns it to all existing users with is_system_admin=True (yourself
+    included). You won't lose access.
 
 --------------------------------------------------------------------------------
-WHAT TO TEST
+WHAT'S NEW IN THE ROLE GRID
 --------------------------------------------------------------------------------
 
-Open the dashboard in Chrome DevTools, hit F12, click the device toolbar
-icon, switch to iPhone or similar. Then visit:
+Three new rows appear in /auth/roles/create/ and /auth/roles/<id>/edit/:
 
-  /vehicles/   → table should turn into stacked cards. Each card shows
-                 "Plate Number: GMB-217-AA" on its own line, then "Type:
-                 Bus" on the next, etc. View and Edit buttons at the
-                 bottom, full-width.
-
-  /drivers/    → same treatment. Each driver becomes a card.
-
-  /vendors/    → same.
-
-Resize the browser between phone and desktop sizes — the layout should
-flip cleanly at 640px.
-
-Also test:
-  - Filter bars on every list page wrap nicely on phone (controls go
-    full-width and stack)
-  - Page headers stack title above buttons on phone
-  - Dashboard tile values still fit (smaller font on tiny screens)
+  Departments        → Read, Write, Edit, Delete
+  Report Schedules   → Read, Write, Edit, Delete
+  Fuel Station Deposits → Read, Write, Delete (no Edit, deposits are immutable)
 
 --------------------------------------------------------------------------------
-WHAT'S NOT YET DONE
+WHAT'S NEW IN THE SIDEBAR
 --------------------------------------------------------------------------------
 
-The .table-responsive class is only applied to vehicles, drivers, and
-vendors. Other list pages still horizontal-scroll on mobile (functional
-but ugly):
-
-  - coupons/list.html  (and pending_list.html, redeemed list)
-  - fuel_logs/list.html
-  - maintenance/list.html
-  - trips/list.html
-  - station_deposits/list.html
-  - generators/list.html
-  - audit/list.html
-  - reports/* (lower priority since reports are mostly desktop)
-
-To apply the pattern to any of these, follow the same recipe:
-  1. Change `<table class="data-table">` to `<table class="data-table table-responsive">`
-  2. For each <td>, add data-label="<the header text from the column>"
-  3. For the action cell (View/Edit/Delete buttons), add data-label=""
-     and class="actions-cell"
-
-If you'd rather I do the rest in a follow-up drop, just say the word and
-I'll batch them.
+  - Departments link: now visible to any user with `departments:read`,
+    not just Super Admin. (Previously hard-coded Super-Admin-only.)
+  - Report Schedules link: now visible to any user with
+    `report_schedules:read`, not just users with `reports:read`.
 
 --------------------------------------------------------------------------------
-HOW THE .table-responsive CLASS WORKS (for future maintenance)
+SUPER ADMIN ROLE BEHAVIOR
 --------------------------------------------------------------------------------
 
-Below 640px viewport width:
-  - <thead> is hidden (column labels move into each cell via data-label)
-  - <tr> becomes a bordered card with shadow
-  - <td> becomes a flex row: label on left, value on right
-  - Action cells with data-label="" get a top border separator and
-    buttons take full width side-by-side
+The Super Admin role is now a SYSTEM ROLE (is_system_role=True). It appears
+in the roles list with "Protected" status. Attempting to edit or delete it
+via the UI shows a "System roles cannot be modified" error.
 
-Above 640px:
-  - Behaves like a normal table. No visual change.
+The role is also TIED to the User.is_system_admin flag via a signal:
 
-The data-label attribute is read by CSS via attr(). If you forget to
-add data-label="..." to a <td>, that cell will just show its value
-with no label prefix.
+  - Assigning the Super Admin role to a user → is_system_admin = True
+    (granted automatically on save)
+  - Removing the Super Admin role from a user → is_system_admin = False
+    (revoked automatically on save)
+
+This means: removing someone from the Super Admin role immediately demotes
+them from system-wide access. This is by design — the role IS the
+permission. But it does mean a casual role change could lock somebody out
+of admin functions. Always have at least one other Super Admin before
+demoting someone.
+
+--------------------------------------------------------------------------------
+WHAT'S NOT CHANGED
+--------------------------------------------------------------------------------
+
+  - Existing custom roles (Administrator, Quality Assurance, Transport
+    Officer) keep their EXACT current permissions. Nothing added, nothing
+    removed. If you want the Administrator role to manage departments or
+    schedules, you'll need to tick those boxes manually.
+  - Existing users with role assignments unchanged.
+  - The "Save Changes" button on the Super Admin role page is suppressed
+    server-side (was already suppressed in template before this drop).
+
+--------------------------------------------------------------------------------
+TESTS BEFORE TRUSTING THIS
+--------------------------------------------------------------------------------
+
+  1. /auth/roles/ → "Super Admin" appears in the list with "System" type
+     badge. No Edit button (it's protected). Description reads "Full
+     system access. Cannot be edited or deleted..."
+
+  2. As Super Admin, go to /auth/users/<your-pk>/edit/. Your role
+     should now be "Super Admin". You still have all access.
+
+  3. Try to edit the Super Admin role itself (e.g. /auth/roles/<id>/edit/).
+     The form loads but submitting POST shows "System roles cannot be
+     modified" and redirects back.
+
+  4. Create a NEW user, assign the Administrator role, log in as them:
+     - Should NOT see Departments link (unless you've granted it)
+     - Should NOT see Send Now / Edit / Delete on Report Schedules
+       (unless you've granted those new modules)
+     - Should see the standard Administrator capabilities
+
+  5. As Super Admin, edit the Administrator role. Tick the new
+     "Departments" and "Report Schedules" modules with all capabilities.
+     Save. Log back in as the Administrator user — they should now see
+     Departments in the sidebar and full schedule actions.
+
+  6. Now demote that Administrator user: change their role to "Quality
+     Assurance". Save. Log in as them — should be locked out of
+     everything Administrator could do, restricted to QA scope.
+
+  7. (Optional) Migration sanity: from `python manage.py shell`:
+        from accounts.models import User, Role
+        sr = Role.objects.get(name="Super Admin")
+        for u in User.objects.filter(is_system_admin=True):
+            assert u.role_id == sr.pk, f"{u} is system admin but not in Super Admin role"
+        print("All system admins are in Super Admin role")
+
+--------------------------------------------------------------------------------
+HONEST CAVEATS
+--------------------------------------------------------------------------------
+
+* The signal flips is_system_admin on pre_save. If you create a user via
+  the Django shell with `User.objects.create(..., is_system_admin=True,
+  role=some_non_super_role)`, the signal will OVERRIDE your flag back to
+  False because the role isn't Super Admin. This is correct behavior but
+  worth knowing.
+
+* `createsuperuser` (the management command) sets is_system_admin=True
+  on a user with no role. The signal detects this (pk is None on create
+  + is_system_admin already True) and skips the override. The new user
+  is a Super Admin (flag True) but has no role assigned. You should then
+  manually assign them the Super Admin role via /auth/users/.
+
+* The "Administrator" role (custom, not system) still shows muted green
+  badges on the roles list because it doesn't have FULL access on every
+  module — Reports has only Read available, for example, so it's never
+  "full access" for that module. The badge color is determined by
+  is_full_access (all 4 caps true), which isn't possible for Reports.
+  This is correct and expected.
 
 ================================================================================

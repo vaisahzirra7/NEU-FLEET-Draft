@@ -1374,21 +1374,21 @@ def driver_payments(request):
 
 @login_required
 def schedule_list(request):
-    if not request.user.has_module_perm("reports", "read"):
+    if not request.user.has_module_perm("report_schedules", "read"):
         return HttpResponseForbidden()
     from .models import ReportSchedule
     schedules = ReportSchedule.objects.all()
     return render(request, "reports/schedule_list.html", {
         "schedules": schedules,
-        "can_write":  request.user.has_module_perm("reports", "write"),
-        "can_edit":   request.user.has_module_perm("reports", "edit"),
-        "can_delete": request.user.has_module_perm("reports", "delete"),
+        "can_write":  request.user.has_module_perm("report_schedules", "write"),
+        "can_edit":   request.user.has_module_perm("report_schedules", "edit"),
+        "can_delete": request.user.has_module_perm("report_schedules", "delete"),
     })
 
 
 @login_required
 def schedule_create(request):
-    if not request.user.has_module_perm("reports", "write"):
+    if not request.user.has_module_perm("report_schedules", "write"):
         return HttpResponseForbidden()
     from .models import ReportSchedule
     if request.method == "POST":
@@ -1435,7 +1435,7 @@ def schedule_create(request):
 
 @login_required
 def schedule_edit(request, pk):
-    if not request.user.has_module_perm("reports", "edit"):
+    if not request.user.has_module_perm("report_schedules", "edit"):
         return HttpResponseForbidden()
     from .models import ReportSchedule
     schedule = get_object_or_404(ReportSchedule, pk=pk)
@@ -1460,7 +1460,7 @@ def schedule_edit(request, pk):
 
 @login_required
 def schedule_delete(request, pk):
-    if not request.user.has_module_perm("reports", "delete"):
+    if not request.user.has_module_perm("report_schedules", "delete"):
         return HttpResponseForbidden()
     from .models import ReportSchedule
     schedule = get_object_or_404(ReportSchedule, pk=pk)
@@ -1474,7 +1474,7 @@ def schedule_delete(request, pk):
 @login_required
 def schedule_send_now(request, pk):
     """Send a scheduled report immediately for a custom date range."""
-    if not request.user.has_module_perm("reports", "write"):
+    if not request.user.has_module_perm("report_schedules", "write"):
         return HttpResponseForbidden()
     from .models import ReportSchedule
     schedule = get_object_or_404(ReportSchedule, pk=pk)
