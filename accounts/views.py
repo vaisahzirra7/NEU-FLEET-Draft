@@ -530,12 +530,22 @@ def user_create(request):
             errors["email"] = "A user with this email already exists."
 
         if not errors:
+            # Determine is_system_admin from the assigned role
+            is_super = False
+            if role_id:
+                try:
+                    role = Role.objects.get(pk=role_id)
+                    is_super = (role.name == "Super Admin" and role.is_system_role)
+                except Role.DoesNotExist:
+                    pass
+
             # Create the user with NO usable password — they set it via invite.
             user = User.objects.create_user(
                 email=email, full_name=full_name,
                 password=None,  # explicit, even though create_user handles it
                 role_id=role_id or None,
                 department_id=dept_id or None,
+                is_system_admin=is_super,
                 created_by=request.user,
                 must_change_password=False,  # invite flow handles this differently
             )
@@ -638,6 +648,19 @@ def user_edit(request, pk):
         user.role_id       = request.POST.get("role") or None
         user.department_id = request.POST.get("department") or None
         user.is_active     = request.POST.get("is_active") == "on"
+
+        # Explicitly sync is_system_admin with the Super Admin role assignment.
+        # The signal handler does this too, but we do it here belt-and-braces in
+        # case AppConfig signal registration ever fails silently.
+        if user.role_id:
+            try:
+                role = Role.objects.get(pk=user.role_id)
+                user.is_system_admin = (role.name == "Super Admin" and role.is_system_role)
+            except Role.DoesNotExist:
+                user.is_system_admin = False
+        else:
+            user.is_system_admin = False
+
         user.save()
         messages.success(request, f"User '{user.full_name}' updated.")
         return redirect("accounts:users")
