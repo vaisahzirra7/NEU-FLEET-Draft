@@ -68,12 +68,12 @@ def reverse_(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("accounts", "0009_add_station_deposits_module"),
+        ("accounts", "0010_alter_rolemodulepermission_module"),
     ]
 
     operations = [
-        # Note: MODULE_CHOICES is a Python list on the model, not a database
-        # column. Django doesn't auto-detect changes to choices lists. The
-        # only thing we need to migrate is DATA: the new role + permissions.
+        # 0010 (the AlterField above) handles the column choices update.
+        # This migration handles the DATA: creating the Super Admin role
+        # and granting permissions.
         migrations.RunPython(add_modules_and_super_admin_role, reverse_),
     ]
