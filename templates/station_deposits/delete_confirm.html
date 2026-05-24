@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Delete Deposit{% endblock %}
+{% block page_title %}Delete Deposit{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'vendors:detail' deposit.vendor.pk %}">{{ deposit.vendor.name }}</a>
+  <span class="sep">›</span> Delete Deposit
+{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" style="color:var(--danger);">Confirm Deletion</div>
+    </div>
+    <div class="card-body">
+
+      <div style="background:rgba(216,73,55,.07);border:1px solid #f0b8b3;border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:.83rem;color:var(--text);">
+        <strong>This action is irreversible.</strong> Deleting this deposit will recompute the station's balance immediately. The audit log will record who deleted it, when, and the original details — but the row itself will be gone.
+      </div>
+
+      <table style="width:100%;font-size:.88rem;margin-bottom:1.25rem;">
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);width:140px;">Station</td>
+          <td style="padding:.4rem 0;font-weight:600;">{{ deposit.vendor.name }}</td>
+        </tr>
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);">Amount</td>
+          <td style="padding:.4rem 0;font-weight:600;color:#206a23;">₦ {{ deposit.amount|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);">Deposit Date</td>
+          <td style="padding:.4rem 0;">{{ deposit.deposit_date|date:"j M Y" }}</td>
+        </tr>
+        {% if deposit.reference_number %}
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);">Reference</td>
+          <td style="padding:.4rem 0;font-family:monospace;font-size:.83rem;">{{ deposit.reference_number }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);">Recorded By</td>
+          <td style="padding:.4rem 0;">{{ deposit.created_by.full_name }}</td>
+        </tr>
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);">Recorded On</td>
+          <td style="padding:.4rem 0;color:var(--text-muted);font-size:.83rem;">{{ deposit.created_at|date:"j M Y, H:i" }}</td>
+        </tr>
+        {% if deposit.note %}
+        <tr>
+          <td style="padding:.4rem 0;color:var(--text-muted);vertical-align:top;">Note</td>
+          <td style="padding:.4rem 0;font-size:.83rem;">{{ deposit.note }}</td>
+        </tr>
+        {% endif %}
+      </table>
+
+      <form method="post" onsubmit="return confirm('Are you ABSOLUTELY sure? This cannot be undone.');">
+        {% csrf_token %}
+        <div class="d-flex gap-1">
+          <button type="submit" class="btn" style="background:var(--danger);color:#fff;border:none;">
+            Yes, Delete This Deposit
+          </button>
+          <a href="{% url 'vendors:detail' deposit.vendor.pk %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

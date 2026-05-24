@@ -31,7 +31,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Name</th>
@@ -47,33 +47,33 @@
       <tbody>
         {% for s in schedules %}
         <tr>
-          <td class="fw-600">{{ s.name }}</td>
-          <td style="font-size:.83rem;">{{ s.get_report_type_display }}</td>
-          <td>
+          <td data-label="Name" class="fw-600">{{ s.name }}</td>
+          <td data-label="Report Type" style="font-size:.83rem;">{{ s.get_report_type_display }}</td>
+          <td data-label="Format">
             <span class="badge {% if s.format == 'pdf' %}badge-navy{% else %}badge-success{% endif %}">
               {{ s.format|upper }}
             </span>
           </td>
-          <td style="font-size:.83rem;">
+          <td data-label="Send Day" style="font-size:.83rem;">
             Day {{ s.send_day }}
             <span style="color:var(--text-muted);font-size:.75rem;">of each month</span>
           </td>
-          <td style="font-size:.78rem;color:var(--text-muted);max-width:200px;">
+          <td data-label="Recipients" style="font-size:.78rem;color:var(--text-muted);max-width:200px;">
             {% for email in s.recipient_list %}
             <div>{{ email }}</div>
             {% endfor %}
           </td>
-          <td>
+          <td data-label="Status">
             {% if s.is_active %}
             <span class="badge badge-success">Active</span>
             {% else %}
             <span class="badge badge-muted">Paused</span>
             {% endif %}
           </td>
-          <td style="font-size:.78rem;color:var(--text-muted);">
+          <td data-label="Last Sent" style="font-size:.78rem;color:var(--text-muted);">
             {{ s.last_sent|date:"j M Y H:i"|default:"Never" }}
           </td>
-          <td>
+          <td data-label="" class="actions-cell">
             {% if can_edit %}
             <a href="{% url 'reports:schedule_edit' s.pk %}" class="btn btn-outline btn-sm">Edit</a>
             {% endif %}

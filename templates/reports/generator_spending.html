@@ -109,7 +109,7 @@
     <div class="card-title">Generator Breakdown — {{ date_from|date:"j M Y" }} to {{ date_to|date:"j M Y" }}</div>
   </div>
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Rank</th>
@@ -126,15 +126,15 @@
       <tbody>
         {% for r in rows %}
         <tr>
-          <td style="color:var(--text-muted);font-size:.78rem;">{{ forloop.counter }}</td>
-          <td><a href="{% url 'generators:detail' r.generator.pk %}" class="fw-600">{{ r.generator.tag }}</a></td>
-          <td>{{ r.generator.name }}</td>
-          <td>{{ r.generator.building }}</td>
-          <td>{{ r.fuel_litres|floatformat:1 }} L</td>
-          <td>₦ {{ r.fuel_cost|floatformat:2 }}</td>
-          <td>₦ {{ r.maint_cost|floatformat:2 }}</td>
-          <td class="fw-600" style="color:var(--navy);">₦ {{ r.total|floatformat:2 }}</td>
-          <td>
+          <td data-label="Rank" style="color:var(--text-muted);font-size:.78rem;">{{ forloop.counter }}</td>
+          <td data-label="Tag"><a href="{% url 'generators:detail' r.generator.pk %}" class="fw-600">{{ r.generator.tag }}</a></td>
+          <td data-label="Name">{{ r.generator.name }}</td>
+          <td data-label="Building">{{ r.generator.building }}</td>
+          <td data-label="Fuel Litres">{{ r.fuel_litres|floatformat:1 }} L</td>
+          <td data-label="Fuel Cost">₦ {{ r.fuel_cost|floatformat:2 }}</td>
+          <td data-label="Maintenance">₦ {{ r.maint_cost|floatformat:2 }}</td>
+          <td data-label="Total Spend" class="fw-600" style="color:var(--navy);">₦ {{ r.total|floatformat:2 }}</td>
+          <td data-label="% of Total">
             {% if grand_total %}
             <div style="display:flex;align-items:center;gap:.5rem;">
               <div style="flex:1;background:var(--border);border-radius:4px;height:6px;min-width:60px;">
@@ -154,12 +154,12 @@
       {% if rows %}
       <tfoot>
         <tr style="background:var(--surface-2);font-weight:700;">
-          <td colspan="4" class="fw-700" style="padding:.75rem 1rem;">TOTAL</td>
-          <td style="padding:.75rem 1rem;"></td>
-          <td style="padding:.75rem 1rem;">₦ {{ grand_fuel|floatformat:2 }}</td>
-          <td style="padding:.75rem 1rem;">₦ {{ grand_maint|floatformat:2 }}</td>
-          <td style="padding:.75rem 1rem;color:var(--navy);">₦ {{ grand_total|floatformat:2 }}</td>
-          <td style="padding:.75rem 1rem;">100%</td>
+          <td data-label="" colspan="4" class="fw-700" style="padding:.75rem 1rem;">TOTAL</td>
+          <td data-label="Fuel Litres" style="padding:.75rem 1rem;"></td>
+          <td data-label="Fuel Cost" style="padding:.75rem 1rem;">₦ {{ grand_fuel|floatformat:2 }}</td>
+          <td data-label="Maintenance" style="padding:.75rem 1rem;">₦ {{ grand_maint|floatformat:2 }}</td>
+          <td data-label="Total Spend" style="padding:.75rem 1rem;color:var(--navy);">₦ {{ grand_total|floatformat:2 }}</td>
+          <td data-label="% of Total" style="padding:.75rem 1rem;">100%</td>
         </tr>
       </tfoot>
       {% endif %}

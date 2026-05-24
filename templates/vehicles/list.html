@@ -47,7 +47,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Plate Number</th>
@@ -63,15 +63,15 @@
       <tbody>
         {% for v in vehicles %}
         <tr>
-          <td>
+          <td data-label="Plate Number">
             <a href="{% url 'vehicles:detail' v.pk %}" class="fw-600" style="color:var(--navy);">{{ v.plate_number }}</a>
           </td>
-          <td>{{ v.get_vehicle_type_display }}</td>
-          <td>{{ v.make }} {{ v.model }}</td>
-          <td>{{ v.year }}</td>
-          <td>{{ v.department.name }}</td>
-          <td>{{ v.get_fuel_type_display }}</td>
-          <td>
+          <td data-label="Type">{{ v.get_vehicle_type_display }}</td>
+          <td data-label="Make & Model">{{ v.make }} {{ v.model }}</td>
+          <td data-label="Year">{{ v.year }}</td>
+          <td data-label="Department">{{ v.department.name }}</td>
+          <td data-label="Fuel">{{ v.get_fuel_type_display }}</td>
+          <td data-label="Status">
             {% if v.status == "active" %}
               <span class="badge badge-success">Active</span>
             {% elif v.status == "under_repair" %}
@@ -80,7 +80,7 @@
               <span class="badge badge-muted">Inactive</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="" class="actions-cell">
             <div class="d-flex gap-1">
               <a href="{% url 'vehicles:detail' v.pk %}" class="btn btn-outline btn-sm">View</a>
               {% if can_write %}

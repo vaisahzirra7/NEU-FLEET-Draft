@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Station Deposits{% endblock %}
+{% block page_title %}Station Deposits{% endblock %}
+{% block breadcrumb %}<span class="sep">›</span> Deposits{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Station Deposits</h1>
+    <p>Money deposited at fuel stations. Deposits are immutable once recorded.</p>
+  </div>
+  {% if can_write %}
+  <a href="{% url 'station_deposits:create' %}" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Record Deposit
+  </a>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar">
+      <div class="search-wrap">
+        <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" name="q" value="{{ filter_q }}" placeholder="Search reference, note, recorder..." class="form-control">
+      </div>
+      <select name="station" class="form-select" style="width:auto;">
+        <option value="">All Stations</option>
+        {% for s in stations %}
+        <option value="{{ s.pk }}" {% if filter_station_id == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="date" name="date_from" value="{{ filter_date_from }}" class="form-control" style="width:auto;">
+      <span style="color:var(--text-muted);align-self:center;">to</span>
+      <input type="date" name="date_to" value="{{ filter_date_to }}" class="form-control" style="width:auto;">
+      <button type="submit" class="btn btn-outline">Filter</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if deposits %}
+    <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+      <thead>
+        <tr style="background:var(--surface-2);">
+          <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Date</th>
+          <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Station</th>
+          <th style="text-align:right;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Amount</th>
+          <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Reference</th>
+          <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Recorded By</th>
+          <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Recorded On</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deposits %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:.6rem .85rem;">{{ d.deposit_date|date:"j M Y" }}</td>
+          <td style="padding:.6rem .85rem;">
+            <a href="{% url 'vendors:detail' d.vendor.pk %}" style="color:var(--navy);text-decoration:none;font-weight:600;">{{ d.vendor.name }}</a>
+          </td>
+          <td style="padding:.6rem .85rem;text-align:right;font-weight:600;color:#206a23;">₦ {{ d.amount|floatformat:2 }}</td>
+          <td style="padding:.6rem .85rem;font-family:monospace;font-size:.78rem;color:var(--text-muted);">{{ d.reference_number|default:"—" }}</td>
+          <td style="padding:.6rem .85rem;">{{ d.created_by.full_name }}</td>
+          <td style="padding:.6rem .85rem;color:var(--text-muted);font-size:.78rem;">{{ d.created_at|date:"j M Y, H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:3rem 1.5rem;">
+      <span class="empty-icon">💵</span>
+      <div class="empty-title">No deposits found</div>
+      <div class="empty-sub">{% if can_write %}<a href="{% url 'station_deposits:create' %}">Record the first deposit</a>.{% else %}Ask an admin to record deposits.{% endif %}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

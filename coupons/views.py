@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponseForbidden, JsonResponse
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from .models import FuelCoupon
@@ -127,23 +128,115 @@ def create_view(request):
 
         if not errors:
             total = litres * cost
-            coupon = FuelCoupon.objects.create(
-                vehicle_id      = vehicle_id or None,
-                driver_id       = driver_id or None,
-                generator_id    = generator_id or None,
-                fuel_station_id = station_id,
-                issued_by       = request.user,
-                litres          = litres,
-                cost_per_litre  = cost,
-                total_value     = total,
-                expiry_date     = expiry_date or None,
-                purpose         = purpose,
-            )
+
+            # ── Stage 2: fuel station balance check ──────────────────────
+            # Read override flag from POST. If user is not Super Admin and the
+            # station has insufficient available balance, hard-block. If user
+            # IS Super Admin, show the gap and let them re-submit with override=1.
+            override_flag = request.POST.get("override") == "1"
+
+            # select_for_update locks the vendor row for the duration of the
+            # transaction. Combined with atomic(), this prevents two concurrent
+            # issuances from racing past the same balance check.
+            try:
+                with transaction.atomic():
+                    station = Vendor.objects.select_for_update().get(
+                        pk=station_id, type=Vendor.TYPE_FUEL, is_active=True,
+                    )
+                    available = station.available_balance
+                    insufficient = total > available
+
+                    if insufficient and not override_flag:
+                        # Not enough balance. Decide what to tell the user.
+                        if request.user.is_system_admin:
+                            # Super Admin sees the override prompt.
+                            return render(request, "coupons/form.html", {
+                                "errors": errors,
+                                "vehicles": vehicles,
+                                "drivers": drivers,
+                                "generators": generators,
+                                "fuel_stations": fuel_stations,
+                                "post": request.POST,
+                                "default_asset_type": asset_type,
+                                "balance_warning": {
+                                    "station_name":   station.name,
+                                    "available":      available,
+                                    "outstanding":    station.total_outstanding_value,
+                                    "book_balance":   station.balance,
+                                    "coupon_total":   total,
+                                    "shortfall":      total - available,
+                                    "can_override":   True,
+                                },
+                            })
+                        else:
+                            # Regular user — hard-block, no override path.
+                            messages.error(
+                                request,
+                                f"Insufficient balance at {station.name}. "
+                                f"Available: \u20a6{available:,.2f} (\u20a6{station.balance:,.2f} on station "
+                                f"with \u20a6{station.total_outstanding_value:,.2f} in outstanding coupons). "
+                                f"This coupon needs \u20a6{total:,.2f}. "
+                                f"Ask an admin to record a deposit, or contact a Super Admin to override."
+                            )
+                            return render(request, "coupons/form.html", {
+                                "errors": errors,
+                                "vehicles": vehicles,
+                                "drivers": drivers,
+                                "generators": generators,
+                                "fuel_stations": fuel_stations,
+                                "post": request.POST,
+                                "default_asset_type": asset_type,
+                                "balance_warning": {
+                                    "station_name":  station.name,
+                                    "available":     available,
+                                    "outstanding":   station.total_outstanding_value,
+                                    "book_balance":  station.balance,
+                                    "coupon_total":  total,
+                                    "shortfall":     total - available,
+                                    "can_override":  False,
+                                },
+                            })
+
+                    # All clear (or overridden) — create the coupon inside the
+                    # same transaction so the lock holds.
+                    coupon = FuelCoupon.objects.create(
+                        vehicle_id      = vehicle_id or None,
+                        driver_id       = driver_id or None,
+                        generator_id    = generator_id or None,
+                        fuel_station_id = station_id,
+                        issued_by       = request.user,
+                        litres          = litres,
+                        cost_per_litre  = cost,
+                        total_value     = total,
+                        expiry_date     = expiry_date or None,
+                        purpose         = purpose,
+                        issued_with_override = (insufficient and override_flag),
+                    )
+            except Vendor.DoesNotExist:
+                errors["fuel_station"] = "Selected station is no longer active."
+                return render(request, "coupons/form.html", {
+                    "errors": errors,
+                    "vehicles": vehicles,
+                    "drivers": drivers,
+                    "generators": generators,
+                    "fuel_stations": fuel_stations,
+                    "post": request.POST,
+                    "default_asset_type": asset_type,
+                })
+
+            # Audit — record override separately so it's easy to find
+            audit_detail = f"Issued coupon {coupon.coupon_id} for {coupon.asset_label}"
+            if coupon.issued_with_override:
+                audit_detail += (
+                    f" — BALANCE OVERRIDE used by Super Admin "
+                    f"(coupon \u20a6{total:,.2f} > available \u20a6{available:,.2f} "
+                    f"at {station.name})"
+                )
             AuditLog.objects.create(
                 user=request.user, user_name=request.user.full_name,
                 action=AuditLog.ACTION_ISSUE, module="coupons",
                 record_id=str(coupon.pk),
-                detail=f"Issued coupon {coupon.coupon_id} for {coupon.asset_label}"
+                detail=audit_detail,
             )
 
             # Auto-dismiss monthly fuel reminder only applies to vehicles
@@ -256,54 +349,112 @@ def bulk_issue_view(request):
                     rows.append(("vehicle", vid, driver_id or None, litres))
 
         if not errors:
-            issued = []
-            for kind, asset_id, driver_id, litres in rows:
-                total = litres * cost
-                if kind == "vehicle":
-                    coupon = FuelCoupon.objects.create(
-                        vehicle_id      = asset_id,
-                        driver_id       = driver_id,
-                        fuel_station_id = station_id,
-                        litres          = litres,
-                        cost_per_litre  = cost,
-                        total_value     = total,
-                        expiry_date     = expiry_date or None,
-                        purpose         = "Bulk issue",
-                        issued_by       = request.user,
-                    )
-                    try:
-                        v = Vehicle.objects.get(pk=asset_id)
-                        if v.needs_monthly_fuel:
-                            from vehicles.models import MonthlyFuelDismissal
-                            from django.utils import timezone as tz
-                            now = tz.now()
-                            MonthlyFuelDismissal.objects.get_or_create(
-                                vehicle=v, month=now.month, year=now.year,
-                                defaults={"dismissed_by": request.user.full_name}
-                            )
-                    except Vehicle.DoesNotExist:
-                        pass
-                    detail = f"Bulk issued coupon {coupon.coupon_id} for vehicle #{asset_id}"
-                else:
-                    coupon = FuelCoupon.objects.create(
-                        generator_id    = asset_id,
-                        fuel_station_id = station_id,
-                        litres          = litres,
-                        cost_per_litre  = cost,
-                        total_value     = total,
-                        expiry_date     = expiry_date or None,
-                        purpose         = "Bulk issue",
-                        issued_by       = request.user,
-                    )
-                    detail = f"Bulk issued coupon {coupon.coupon_id} for generator #{asset_id}"
+            # ── Stage 2: bulk balance check (all-or-nothing) ─────────────
+            # Sum the value of every coupon in this batch and check it
+            # against the station's available balance in one go.
+            batch_total = sum((litres * cost for _, _, _, litres in rows), Decimal("0.00"))
+            override_flag = request.POST.get("override") == "1"
 
-                AuditLog.objects.create(
-                    user=request.user, user_name=request.user.full_name,
-                    action=AuditLog.ACTION_ISSUE, module="coupons",
-                    record_id=str(coupon.pk),
-                    detail=detail,
-                )
-                issued.append(coupon)
+            try:
+                with transaction.atomic():
+                    station = Vendor.objects.select_for_update().get(
+                        pk=station_id, type=Vendor.TYPE_FUEL, is_active=True,
+                    )
+                    available = station.available_balance
+                    insufficient = batch_total > available
+
+                    if insufficient and not override_flag:
+                        warning_ctx = {
+                            "station_name":  station.name,
+                            "available":     available,
+                            "outstanding":   station.total_outstanding_value,
+                            "book_balance":  station.balance,
+                            "coupon_total":  batch_total,
+                            "shortfall":     batch_total - available,
+                            "coupon_count":  len(rows),
+                            "can_override":  request.user.is_system_admin,
+                        }
+                        if not request.user.is_system_admin:
+                            messages.error(
+                                request,
+                                f"Insufficient balance at {station.name} for this batch. "
+                                f"Available: \u20a6{available:,.2f}. "
+                                f"Batch total: \u20a6{batch_total:,.2f}. "
+                                f"Ask an admin to record a deposit, or contact a Super Admin to override."
+                            )
+                        return render(request, "coupons/bulk_issue.html", {
+                            "vehicles": vehicles,
+                            "generators": generators,
+                            "fuel_stations": fuel_stations,
+                            "drivers": drivers,
+                            "errors": errors,
+                            "post": request.POST,
+                            "balance_warning": warning_ctx,
+                        })
+
+                    issued = []
+                    for kind, asset_id, driver_id, litres in rows:
+                        total = litres * cost
+                        if kind == "vehicle":
+                            coupon = FuelCoupon.objects.create(
+                                vehicle_id      = asset_id,
+                                driver_id       = driver_id,
+                                fuel_station_id = station_id,
+                                litres          = litres,
+                                cost_per_litre  = cost,
+                                total_value     = total,
+                                expiry_date     = expiry_date or None,
+                                purpose         = "Bulk issue",
+                                issued_by       = request.user,
+                                issued_with_override = (insufficient and override_flag),
+                            )
+                            try:
+                                v = Vehicle.objects.get(pk=asset_id)
+                                if v.needs_monthly_fuel:
+                                    from vehicles.models import MonthlyFuelDismissal
+                                    from django.utils import timezone as tz
+                                    now = tz.now()
+                                    MonthlyFuelDismissal.objects.get_or_create(
+                                        vehicle=v, month=now.month, year=now.year,
+                                        defaults={"dismissed_by": request.user.full_name}
+                                    )
+                            except Vehicle.DoesNotExist:
+                                pass
+                            detail = f"Bulk issued coupon {coupon.coupon_id} for vehicle #{asset_id}"
+                        else:
+                            coupon = FuelCoupon.objects.create(
+                                generator_id    = asset_id,
+                                fuel_station_id = station_id,
+                                litres          = litres,
+                                cost_per_litre  = cost,
+                                total_value     = total,
+                                expiry_date     = expiry_date or None,
+                                purpose         = "Bulk issue",
+                                issued_by       = request.user,
+                                issued_with_override = (insufficient and override_flag),
+                            )
+                            detail = f"Bulk issued coupon {coupon.coupon_id} for generator #{asset_id}"
+
+                        if coupon.issued_with_override:
+                            detail += " — BALANCE OVERRIDE used"
+
+                        AuditLog.objects.create(
+                            user=request.user, user_name=request.user.full_name,
+                            action=AuditLog.ACTION_ISSUE, module="coupons",
+                            record_id=str(coupon.pk),
+                            detail=detail,
+                        )
+                        issued.append(coupon)
+            except Vendor.DoesNotExist:
+                errors["fuel_station"] = "Selected station is no longer active."
+                return render(request, "coupons/bulk_issue.html", {
+                    "vehicles": vehicles,
+                    "generators": generators,
+                    "fuel_stations": fuel_stations,
+                    "drivers": drivers,
+                    "errors": errors,
+                    "post": request.POST,
+                })
 
             messages.success(
                 request,

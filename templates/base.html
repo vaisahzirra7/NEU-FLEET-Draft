@@ -7,6 +7,7 @@
   {% load static %}
   {% if brand.favicon_url %}<link rel="icon" href="{{ brand.favicon_url }}">{% endif %}
   <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <link rel="stylesheet" href="{% static 'css/mobile.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   {% block extra_css %}{% endblock %}
 </head>
@@ -150,6 +151,19 @@
           </svg>
         </span>
         Fuel Logs
+      </a>
+      {% endif %}
+
+      {% if "station_deposits" in modules %}
+      <a class="nav-item {% if 'station_deposits' in request.resolver_match.app_name %}active{% endif %}" href="{% url 'station_deposits:list' %}">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="12" rx="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <path d="M6 12h.01M18 12h.01"/>
+          </svg>
+        </span>
+        Station Deposits
       </a>
       {% endif %}
 

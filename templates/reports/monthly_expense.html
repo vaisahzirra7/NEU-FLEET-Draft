@@ -50,14 +50,14 @@
 <div class="card" style="margin-bottom:1.25rem;">
   <div class="card-header"><div class="card-title">Fuel Transactions</div></div>
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead><tr><th>Date</th><th>Coupon ID</th><th>Asset</th><th>Driver / Building</th><th>Station</th><th>Litres</th><th>Cost</th></tr></thead>
       <tbody>
         {% for log in fuel_logs %}
         <tr>
-          <td>{{ log.fuel_date|date:"j M Y" }}</td>
-          <td><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
-          <td>
+          <td data-label="Date">{{ log.fuel_date|date:"j M Y" }}</td>
+          <td data-label="Coupon ID"><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
+          <td data-label="Asset">
             {% if log.is_for_vehicle %}
               <div>
                 <a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a>
@@ -70,14 +70,14 @@
               </div>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Driver / Building">
             {% if log.is_for_vehicle %}{{ log.driver.full_name|default:"—" }}
             {% else %}<span style="color:var(--text-muted);">{{ log.generator.building }}</span>
             {% endif %}
           </td>
-          <td>{{ log.fuel_station.name|default:"—" }}</td>
-          <td>{{ log.actual_litres }} L</td>
-          <td class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
+          <td data-label="Station">{{ log.fuel_station.name|default:"—" }}</td>
+          <td data-label="Litres">{{ log.actual_litres }} L</td>
+          <td data-label="Cost" class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No fuel transactions in this period.</td></tr>
@@ -91,13 +91,13 @@
 <div class="card">
   <div class="card-header"><div class="card-title">Maintenance Records</div></div>
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead><tr><th>Date</th><th>Asset</th><th>Type</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
       <tbody>
         {% for rec in maint_records %}
         <tr>
-          <td>{{ rec.service_date|date:"j M Y" }}</td>
-          <td>
+          <td data-label="Date">{{ rec.service_date|date:"j M Y" }}</td>
+          <td data-label="Asset">
             {% if rec.is_for_vehicle %}
               <div>
                 <a href="{% url 'vehicles:detail' rec.vehicle.pk %}">{{ rec.vehicle.plate_number }}</a>
@@ -110,10 +110,10 @@
               </div>
             {% endif %}
           </td>
-          <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
-          <td>{{ rec.effective_vendor_name }}</td>
-          <td class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
-          <td style="color:var(--text-muted);">{{ rec.approved_by }}</td>
+          <td data-label="Type"><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
+          <td data-label="Vendor">{{ rec.effective_vendor_name }}</td>
+          <td data-label="Cost" class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
+          <td data-label="Approved By" style="color:var(--text-muted);">{{ rec.approved_by }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No maintenance records in this period.</td></tr>

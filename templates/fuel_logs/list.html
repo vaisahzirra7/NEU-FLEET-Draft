@@ -32,7 +32,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Coupon</th>
@@ -48,8 +48,8 @@
       <tbody>
         {% for log in logs %}
         <tr>
-          <td><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
-          <td>
+          <td data-label="Coupon"><a href="{% url 'coupons:detail' log.coupon.pk %}" class="coupon-id">{{ log.coupon.coupon_id }}</a></td>
+          <td data-label="Asset">
             {% if log.is_for_vehicle %}
               <div>
                 <a href="{% url 'vehicles:detail' log.vehicle.pk %}">{{ log.vehicle.plate_number }}</a>
@@ -62,18 +62,18 @@
               </div>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Driver / Building">
             {% if log.is_for_vehicle %}
               {{ log.driver.full_name|default:"—" }}
             {% else %}
               <span style="color:var(--text-muted);">{{ log.generator.building }}</span>
             {% endif %}
           </td>
-          <td>{{ log.fuel_station.name|default:"—" }}</td>
-          <td>{{ log.fuel_date|date:"j M Y" }}</td>
-          <td>{{ log.actual_litres }} L</td>
-          <td class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
-          <td style="color:var(--text-muted);font-size:.78rem;">{{ log.logged_by.full_name }}</td>
+          <td data-label="Fuel Station">{{ log.fuel_station.name|default:"—" }}</td>
+          <td data-label="Date">{{ log.fuel_date|date:"j M Y" }}</td>
+          <td data-label="Litres">{{ log.actual_litres }} L</td>
+          <td data-label="Cost" class="fw-600">₦ {{ log.actual_cost|floatformat:2 }}</td>
+          <td data-label="Logged By" style="color:var(--text-muted);font-size:.78rem;">{{ log.logged_by.full_name }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="8">

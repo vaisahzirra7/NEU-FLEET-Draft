@@ -22,7 +22,7 @@
 <div class="card" style="margin-bottom:1rem;">
   <div class="card-body" style="padding:.85rem 1.25rem;">
     <form method="get" class="filter-bar" style="flex-wrap:wrap;gap:.5rem;">
-      <div class="search-wrap" style="flex:1 1 240px;">
+      <div class="search-wrap">
         <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" name="q" value="{{ q }}" placeholder="Driver, plate, destination..." class="form-control">
       </div>
@@ -51,7 +51,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Date</th>
@@ -67,14 +67,14 @@
       <tbody>
         {% for t in trips %}
         <tr>
-          <td>{{ t.trip_date|date:"j M Y" }}</td>
-          <td>{{ t.driver.full_name }}</td>
-          <td>{{ t.vehicle.plate_number }}</td>
-          <td>{{ t.from_label }} → {{ t.to_label }}</td>
-          <td class="fw-600">₦ {{ t.amount_paid|floatformat:2 }}</td>
-          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ t.purpose }}">{{ t.purpose|default:"—" }}</td>
-          <td style="color:var(--text-muted);font-size:.85rem;">{{ t.logged_by.full_name }}</td>
-          <td><a href="{% url 'trips:detail' t.pk %}" class="btn btn-outline btn-sm">View</a></td>
+          <td data-label="Date">{{ t.trip_date|date:"j M Y" }}</td>
+          <td data-label="Driver">{{ t.driver.full_name }}</td>
+          <td data-label="Vehicle">{{ t.vehicle.plate_number }}</td>
+          <td data-label="From → To">{{ t.from_label }} → {{ t.to_label }}</td>
+          <td data-label="Amount" class="fw-600">₦ {{ t.amount_paid|floatformat:2 }}</td>
+          <td data-label="Purpose" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ t.purpose }}">{{ t.purpose|default:"—" }}</td>
+          <td data-label="Logged By" style="color:var(--text-muted);font-size:.85rem;">{{ t.logged_by.full_name }}</td>
+          <td data-label="" class="actions-cell"><a href="{% url 'trips:detail' t.pk %}" class="btn btn-outline btn-sm">View</a></td>
         </tr>
         {% empty %}
         <tr><td colspan="8">

@@ -329,6 +329,7 @@ def _build_perm_rows(modules, role=None):
         "destinations":   {"read", "write", "edit"},
         "settings":       {"read", "edit"},
         "settings_email": {"read", "edit"},
+        "station_deposits": {"read", "write", "delete"},
     }
 
     rows = []

@@ -1,0 +1,72 @@
+{% extends "reports/pdf/_base.html" %}
+{% block doc_title %}Station Deposits Report{% endblock %}
+{% block page_label %}Station Deposits{% endblock %}
+{% block report_title %}Station Deposits Report{% endblock %}
+{% block back_url %}{% url 'reports:deposits_report' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}{% endblock %}
+
+{% block content %}
+<div class="kpi-grid">
+  <div class="kpi green"><div class="kpi-value">&#8358;{{ total|floatformat:2 }}</div><div class="kpi-label">Total Deposited</div></div>
+  <div class="kpi blue"><div class="kpi-value">{{ count }}</div><div class="kpi-label">Deposit{{ count|pluralize }}</div></div>
+  <div class="kpi navy"><div class="kpi-value">{{ station_summary|length }}</div><div class="kpi-label">Station{{ station_summary|length|pluralize }} Funded</div></div>
+</div>
+
+{% if station_summary %}
+<div class="section-title">By Station</div>
+<table class="report-table">
+  <thead>
+    <tr>
+      <th>Station</th>
+      <th class="r">Deposits</th>
+      <th class="r">Total (&#8358;)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in station_summary %}
+    <tr>
+      <td class="bold">{{ s.vendor__name }}</td>
+      <td class="r">{{ s.n }}</td>
+      <td class="r navy">{{ s.total|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="section-title">All Deposits</div>
+<table class="report-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Date</th>
+      <th>Station</th>
+      <th class="r">Amount (&#8358;)</th>
+      <th>Reference</th>
+      <th>Recorded By</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in deposits %}
+    <tr>
+      <td class="muted">{{ forloop.counter }}</td>
+      <td>{{ d.deposit_date|date:"d M Y" }}</td>
+      <td class="bold">{{ d.vendor.name }}</td>
+      <td class="r navy">{{ d.amount|floatformat:2 }}</td>
+      <td class="muted">{{ d.reference_number|default:"—" }}</td>
+      <td>{{ d.created_by.full_name }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" class="muted" style="padding:20px;text-align:center;">No deposits in this period.</td></tr>
+    {% endfor %}
+  </tbody>
+  {% if deposits %}
+  <tfoot>
+    <tr>
+      <td colspan="3">TOTAL</td>
+      <td class="r amber">{{ total|floatformat:2 }}</td>
+      <td colspan="2"></td>
+    </tr>
+  </tfoot>
+  {% endif %}
+</table>
+{% endblock %}

@@ -52,6 +52,46 @@
       <form method="post" novalidate>
         {% csrf_token %}
 
+        {% if balance_warning %}
+        <div style="background:#fff5f5;border:2px solid var(--danger);border-radius:10px;padding:1rem 1.15rem;margin-bottom:1.25rem;">
+          <div style="display:flex;gap:.7rem;align-items:flex-start;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:.1rem;">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div style="flex:1;font-size:.85rem;color:var(--text);">
+              <div style="font-weight:700;color:var(--danger);margin-bottom:.35rem;font-size:.95rem;">
+                Insufficient balance at {{ balance_warning.station_name }}
+              </div>
+              <div style="margin-bottom:.6rem;">
+                This coupon needs <strong>₦{{ balance_warning.coupon_total|floatformat:2 }}</strong>,
+                but the station only has <strong>₦{{ balance_warning.available|floatformat:2 }}</strong> available
+                (₦{{ balance_warning.book_balance|floatformat:2 }} on station. However,
+                ₦{{ balance_warning.outstanding|floatformat:2 }} has been reserved for outstanding coupons).
+                Shortfall: <strong>₦{{ balance_warning.shortfall|floatformat:2 }}</strong>.
+              </div>
+              {% if balance_warning.can_override %}
+              <div style="background:#fff;border:1px solid var(--border);border-radius:6px;padding:.7rem .85rem;margin-top:.5rem;">
+                <label style="display:flex;align-items:flex-start;gap:.55rem;cursor:pointer;font-size:.83rem;">
+                  <input type="checkbox" name="override" value="1" style="margin-top:.15rem;flex-shrink:0;">
+                  <span>
+                    <strong>Override (Super Admin only).</strong>
+                    Issue this coupon anyway. The override will be flagged in the
+                    audit log and reports. Use only when you've confirmed a deposit
+                    is pending or expected at this station.
+                  </span>
+                </label>
+              </div>
+              {% else %}
+              <div style="font-size:.8rem;color:var(--text-muted);margin-top:.4rem;">
+                Ask an admin to record a deposit at this station, or contact a Super Admin if this issuance must proceed urgently.
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
         {# ─── Asset type toggle ─── #}
         <div style="margin-bottom:1.25rem;">
           <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem;">Issue Coupon For</div>

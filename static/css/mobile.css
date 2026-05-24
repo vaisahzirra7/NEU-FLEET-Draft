@@ -1,0 +1,244 @@
+/* ─────────────────────────────────────────────────────────────────────
+   mobile.css — global mobile responsiveness for VanaraFleetOps
+
+   Strategy:
+     1. Page-level rules (padding, headings, filter bars) below 768px
+     2. The `.table-responsive` opt-in pattern (below 640px)
+     3. Tighter rules for very small screens (below 480px)
+   ───────────────────────────────────────────────────────────────────── */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHONE / SMALL TABLET — below 768px
+   ═════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* Page padding shrinks so cards aren't squeezed */
+  .main-content,
+  main {
+    padding: 1rem !important;
+  }
+
+  /* Page header stacks vertically — h1 + p on top, actions below */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .75rem;
+  }
+  .page-header h1 { font-size: 1.25rem; }
+  .page-header p  { font-size: .82rem; }
+  .page-header > div:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+
+  /* Filter bars wrap onto multiple lines, controls become full-width */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .6rem;
+  }
+  .filter-bar .form-control,
+  .filter-bar .form-select,
+  .filter-bar .search-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .filter-bar > div {
+    width: 100%;
+  }
+
+  /* Search wrap stays its natural height — the absolute-positioned .si
+     icon then anchors correctly to the input's vertical center. */
+  .filter-bar .search-wrap {
+    flex: 0 0 auto;
+    height: auto;
+  }
+
+  /* Card padding tightens — important for nested cards */
+  .card-body {
+    padding: .85rem 1rem !important;
+  }
+  .card-header {
+    padding: .75rem 1rem;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+
+  /* Stat-grid: cards stack at half-width or full-width */
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: .75rem;
+  }
+
+  /* Smaller stat values so they fit */
+  .stat-value { font-size: 1.4rem; }
+  .stat-label { font-size: .78rem; }
+
+  /* Inline two-column grids should collapse to single column on mobile.
+     Several detail/form pages use inline style="display:grid;grid-template-columns:1fr 1fr"
+     or similar patterns; on phones the columns get squeezed too narrow
+     for content. Target the common patterns. */
+  [style*="grid-template-columns:2fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns:1fr 2fr"],
+  [style*="grid-template-columns: 1fr 2fr"],
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RESPONSIVE TABLES — opt-in via `.table-responsive` class
+   Below 640px, a table with this class becomes a stack of cards.
+   Each row turns into one card; each cell shows its column label.
+
+   USAGE:
+     <table class="table-responsive">
+       <thead>
+         <tr><th>Name</th><th>Status</th><th></th></tr>
+       </thead>
+       <tbody>
+         <tr>
+           <td data-label="Name">John Doe</td>
+           <td data-label="Status">Active</td>
+           <td data-label="" class="actions-cell">[View] [Edit]</td>
+         </tr>
+       </tbody>
+     </table>
+
+   NOTES:
+     - `data-label=""` (empty) suppresses the label prefix — use for action cells
+     - The class is OPT-IN. Tables without it remain horizontal-scroll.
+   ═════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+
+  .table-responsive thead {
+    /* Hide the table header — column labels are repeated per cell via data-label */
+    display: none;
+  }
+
+  .table-responsive,
+  .table-responsive tbody,
+  .table-responsive tr,
+  .table-responsive td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-responsive tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .75rem .9rem;
+    margin-bottom: .65rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+  }
+
+  .table-responsive td {
+    padding: .35rem 0 !important;
+    border-bottom: none !important;
+    text-align: left !important;
+    font-size: .85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  /* The label prefix, rendered from data-label attribute */
+  .table-responsive td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    flex-shrink: 0;
+  }
+
+  /* When data-label="" (empty), suppress the colon and let content take the row */
+  .table-responsive td[data-label=""]::before {
+    content: none;
+  }
+  .table-responsive td[data-label=""] {
+    justify-content: flex-start;
+    padding-top: .6rem !important;
+    border-top: 1px solid var(--border) !important;
+    margin-top: .35rem;
+  }
+
+  /* Action cells: buttons take full width row, side by side */
+  .table-responsive .actions-cell {
+    display: flex !important;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+  .table-responsive .actions-cell .btn {
+    flex: 1;
+    min-width: 70px;
+    text-align: center;
+  }
+
+  /* tfoot (totals row) gets special treatment — kept visible, bold */
+  .table-responsive tfoot tr {
+    background: var(--surface-2);
+    font-weight: 700;
+  }
+  .table-responsive tfoot td {
+    justify-content: space-between;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VERY SMALL SCREENS — below 480px
+   ═════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+
+  /* Heading sizes shrink further */
+  h1 { font-size: 1.15rem; }
+  h2 { font-size: 1rem; }
+  h3 { font-size: .9rem; }
+
+  /* Page padding tighter */
+  .main-content,
+  main {
+    padding: .75rem !important;
+  }
+
+  /* Stat values smaller */
+  .stat-value { font-size: 1.25rem; }
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Button text smaller on tiny screens */
+  .btn {
+    font-size: .78rem;
+    padding: .45rem .8rem;
+  }
+
+  /* Welcome / greeting card — used on dashboard */
+  .greeting-card {
+    padding: 1rem 1.1rem !important;
+  }
+  .greeting-card h1,
+  .greeting-card .greeting-title {
+    font-size: 1.1rem !important;
+  }
+  .greeting-time {
+    font-size: 1.5rem !important;
+  }
+
+  /* Fuel-balance strip */
+  .fbs-value { font-size: 1.55rem; }
+  .fbs-icon { width: 48px; height: 48px; }
+}

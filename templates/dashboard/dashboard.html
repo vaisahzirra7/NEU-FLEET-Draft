@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block title %}Dashboard{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block breadcrumb %}{% endblock %}
@@ -61,6 +62,135 @@
 .greeting-time  { font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .greeting-date  { font-size: .75rem; color: rgba(255,255,255,.42); margin-top: .28rem; }
 .greeting-note  { font-size: .72rem; color: rgba(255,255,255,.32); margin-top: .45rem; font-style: italic; max-width: 160px; line-height: 1.4; }
+
+/* Fuel Station Balance strip ─────────────────────────────────────── */
+.fuel-balance-strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  /* Subtle gradient: white on the left fading to a hint of cool blue on the right.
+     The radial in the corner adds depth without competing with the welcome card. */
+  background:
+    radial-gradient(ellipse 600px 200px at 100% 0%, rgba(13,106,158,.06) 0%, transparent 70%),
+    linear-gradient(135deg, #ffffff 0%, #fafbfd 100%);
+  border: 1px solid rgba(13,106,158,.12);
+  border-radius: 14px;
+  padding: 1.4rem 1.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.03),
+    0 4px 12px rgba(15,23,42,.04);
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+.fuel-balance-strip:hover {
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.04),
+    0 8px 24px rgba(15,23,42,.06);
+}
+/* Soft accent stripe on the left edge — uses an absolutely-positioned pseudo so
+   we don't fight the border-radius. */
+.fuel-balance-strip::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--info) 0%, var(--navy-light) 100%);
+}
+.fuel-balance-strip.warn::before { background: linear-gradient(180deg, #f0c66c 0%, #d9a341 100%); }
+.fuel-balance-strip.neg::before  { background: linear-gradient(180deg, var(--danger) 0%, #b03020 100%); }
+
+.fuel-balance-strip.warn { background:
+  radial-gradient(ellipse 600px 200px at 100% 0%, rgba(240,198,108,.10) 0%, transparent 70%),
+  linear-gradient(135deg, #fffefb 0%, #fffaf0 100%); }
+.fuel-balance-strip.neg  { background:
+  radial-gradient(ellipse 600px 200px at 100% 0%, rgba(216,73,55,.08) 0%, transparent 70%),
+  linear-gradient(135deg, #ffffff 0%, #fff5f5 100%); }
+
+.fbs-left { display: flex; align-items: center; gap: 1.1rem; flex: 1; min-width: 280px; position: relative; }
+
+/* Refined icon: ring + soft fill + gentle inner highlight */
+.fbs-icon {
+  position: relative;
+  width: 60px; height: 60px;
+  background: linear-gradient(135deg, rgba(13,106,158,.14) 0%, rgba(13,106,158,.06) 100%);
+  color: var(--info);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    0 1px 3px rgba(13,106,158,.12);
+}
+.fbs-icon::after {
+  /* Subtle ring */
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 17px;
+  border: 1px solid rgba(13,106,158,.10);
+  pointer-events: none;
+}
+.fuel-balance-strip.warn .fbs-icon {
+  background: linear-gradient(135deg, rgba(240,198,108,.22) 0%, rgba(240,198,108,.08) 100%);
+  color: #a06010;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 3px rgba(160,96,16,.12);
+}
+.fuel-balance-strip.warn .fbs-icon::after { border-color: rgba(160,96,16,.14); }
+.fuel-balance-strip.neg .fbs-icon  {
+  background: linear-gradient(135deg, rgba(216,73,55,.14) 0%, rgba(216,73,55,.06) 100%);
+  color: var(--danger);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 3px rgba(216,73,55,.12);
+}
+.fuel-balance-strip.neg .fbs-icon::after { border-color: rgba(216,73,55,.14); }
+
+.fbs-label  { font-size: .7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .09em; margin-bottom: .2rem; }
+.fbs-value  {
+  font-size: 2.1rem; font-weight: 800; color: var(--text);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.025em;
+}
+.fuel-balance-strip.neg .fbs-value { color: var(--danger); }
+.fbs-meta   { font-size: .78rem; color: var(--text-muted); margin-top: .35rem; }
+.fbs-warn-text { color: #a06010; font-weight: 600; }
+
+.fbs-breakdown {
+  display: flex; align-items: center; gap: 1.25rem;
+  flex-wrap: wrap;
+  position: relative;
+}
+.fbs-action {
+  display: inline-flex; align-items: center; gap: .45rem;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  color: #fff;
+  padding: .65rem 1.1rem;
+  border-radius: 10px;
+  font-size: .82rem; font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 2px rgba(26,50,96,.20),
+    0 4px 12px rgba(26,50,96,.15);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.fbs-action:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(26,50,96,.25),
+    0 8px 20px rgba(26,50,96,.20);
+}
+.fbs-action svg { transition: transform .2s ease; }
+.fuel-balance-strip:hover .fbs-action svg { transform: translateX(2px); }
+
+@media (max-width: 720px) {
+  .fuel-balance-strip { flex-direction: column; align-items: stretch; padding: 1.2rem 1.4rem; }
+  .fbs-breakdown { justify-content: flex-start; }
+  .fbs-value { font-size: 1.85rem; }
+}
 </style>
 {% endblock %}
 
@@ -93,6 +223,42 @@
   </div>
 </div>
 
+{# ─── Fuel Station Balance — prominent strip (full-width) ─── #}
+{% if fuel_balance %}
+<div class="fuel-balance-strip {% if fuel_balance.org_balance < 0 %}neg{% elif fuel_balance.low_stations %}warn{% endif %}">
+  <div class="fbs-left">
+    <div class="fbs-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="22" x2="15" y2="22"/>
+        <line x1="4" y1="9" x2="14" y2="9"/>
+        <path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/>
+        <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2v0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="fbs-label">Fuel Station Balance</div>
+      <div class="fbs-value">₦ {{ fuel_balance.org_balance|floatformat:2|intcomma }}</div>
+      <div class="fbs-meta">
+        Across {{ fuel_balance.station_count }} active station{{ fuel_balance.station_count|pluralize }}
+        {% if fuel_balance.low_stations %}
+          · <span class="fbs-warn-text">{{ fuel_balance.low_stations|length }} below threshold</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="fbs-breakdown">
+    {% if can_record_deposit %}
+    <a href="{% url 'station_deposits:create' %}" class="fbs-action">
+      Record Deposit
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Stat Cards — only show cards relevant to the user's permissions -->
 <div class="stat-grid">
   {% if can_see_coupons %}
@@ -101,7 +267,7 @@
     <div class="stat-body">
       <div class="stat-value">{{ stats.coupons_today }}</div>
       <div class="stat-label">Coupons Issued Today</div>
-      <div class="stat-sub">₦ {{ stats.coupon_value_today|floatformat:2 }} total value</div>
+      <div class="stat-sub">₦ {{ stats.coupon_value_today|floatformat:2|intcomma }} total value</div>
     </div>
   </div>
   <div class="stat-card">
@@ -117,13 +283,13 @@
   <div class="stat-card">
     <div class="stat-icon navy"><i class="fa-solid fa-naira-sign"></i></div>
     <div class="stat-body">
-      <div class="stat-value">₦ {{ stats.monthly_spend|floatformat:0 }}</div>
+      <div class="stat-value">₦ {{ stats.monthly_spend|floatformat:0|intcomma }}</div>
       <div class="stat-label">Spend This Month</div>
       <div class="stat-sub">
         {% if stats.monthly_spend_gen %}
-          <span style="color:var(--info);">V: ₦{{ stats.monthly_spend_veh|floatformat:0 }}</span>
+          <span style="color:var(--info);">V: ₦{{ stats.monthly_spend_veh|floatformat:0|intcomma }}</span>
           &nbsp;·&nbsp;
-          <span style="color:#a06010;">G: ₦{{ stats.monthly_spend_gen|floatformat:0 }}</span>
+          <span style="color:#a06010;">G: ₦{{ stats.monthly_spend_gen|floatformat:0|intcomma }}</span>
         {% else %}
           {% if can_see_coupons and can_see_maintenance %}Fuel + Maintenance{% elif can_see_coupons %}Fuel only{% else %}Maintenance only{% endif %}
         {% endif %}
@@ -152,6 +318,43 @@
   </div>
   {% endif %}
 </div>
+
+{# ─── Low Balance Alerts ─── #}
+{% if fuel_balance.low_stations %}
+<div class="card" style="margin-bottom:1.25rem;border-left:3px solid var(--danger);">
+  <div class="card-header">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round" style="margin-right:.4rem;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Low Balance Stations
+    </div>
+    <span style="font-size:.75rem;color:var(--text-muted);">
+      {{ fuel_balance.low_stations|length }} below ₦{{ fuel_balance.threshold|floatformat:0|intcomma }} threshold
+    </span>
+  </div>
+  <div class="card-body" style="padding:.5rem 1.25rem 1rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
+      {% for s in fuel_balance.low_stations %}
+      <div style="display:flex;align-items:center;gap:.75rem;background:var(--surface-2);border-radius:var(--radius);padding:.6rem .9rem;min-width:280px;flex:1 1 280px;max-width:400px;">
+        <div style="flex:1;">
+          <div class="fw-600" style="font-size:.85rem;"><a href="{% url 'vendors:detail' s.pk %}" style="color:var(--text);text-decoration:none;">{{ s.name }}</a></div>
+          <div style="font-size:.73rem;color:var(--text-muted);">
+            Balance: <strong style="color:{% if s.balance < 0 %}var(--danger){% else %}var(--text){% endif %};">₦{{ s.balance|floatformat:0|intcomma }}</strong>
+            · Available: <strong style="color:{% if s.available < 0 %}var(--danger){% else %}var(--text){% endif %};">₦{{ s.available|floatformat:0|intcomma }}</strong>
+          </div>
+        </div>
+        <div style="display:flex;gap:.4rem;">
+          {% if can_record_deposit %}
+          <a href="{% url 'station_deposits:create' %}?station={{ s.pk }}" class="btn btn-primary btn-sm">Deposit</a>
+          {% else %}
+          <a href="{% url 'vendors:detail' s.pk %}" class="btn btn-outline btn-sm">View</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- Monthly Fuel Reminders -->
 {% if monthly_fuel_vehicles and can_issue_coupons %}
@@ -356,7 +559,7 @@
             <div class="fw-600" style="font-size:.83rem;">{{ v.plate_number }}</div>
             <div style="font-size:.75rem;color:var(--text-muted);">{{ v.make }} {{ v.model }}</div>
           </div>
-          <div style="font-size:.8rem;font-weight:700;color:var(--navy);">₦ {{ v.total_cost|floatformat:0 }}</div>
+          <div style="font-size:.8rem;font-weight:700;color:var(--navy);">₦ {{ v.total_cost|floatformat:0|intcomma }}</div>
         </div>
         {% endfor %}
       </div>

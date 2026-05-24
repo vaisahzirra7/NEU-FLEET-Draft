@@ -88,5 +88,20 @@
     </div>
   </a>
 
+  <a href="{% url 'reports:deposits_report' %}" style="text-decoration:none;">
+    <div class="card" style="transition:box-shadow .18s,transform .18s;cursor:pointer;" onmouseover="this.style.boxShadow='var(--shadow)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+      <div class="card-body">
+        <div style="width:46px;height:46px;background:rgba(76,175,80,.13);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#206a23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+        </div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:.35rem;">Station Deposits</div>
+        <div style="font-size:.8rem;color:var(--text-muted);line-height:1.55;">All deposits made into fuel station accounts in a chosen period. Filter by station or date.</div>
+        <div style="margin-top:1rem;display:flex;align-items:center;gap:.35rem;font-size:.78rem;font-weight:600;color:var(--navy-light);">
+          Open Report <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+    </div>
+  </a>
+
 </div>
 {% endblock %}

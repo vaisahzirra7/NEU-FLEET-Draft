@@ -42,22 +42,23 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr><th>Vendor Name</th><th>Type</th><th>Phone</th><th>Address</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for v in vendors %}
         <tr>
-          <td class="fw-600">{{ v.name }}</td>
-          <td>{{ v.get_type_display }}</td>
-          <td>{{ v.phone|default:"—" }}</td>
-          <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ v.address|default:"—" }}</td>
-          <td>
+          <td data-label="Vendor Name" class="fw-600">{{ v.name }}</td>
+          <td data-label="Type">{{ v.get_type_display }}</td>
+          <td data-label="Phone">{{ v.phone|default:"—" }}</td>
+          <td data-label="Address" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ v.address|default:"—" }}</td>
+          <td data-label="Status">
             {% if v.is_active %}<span class="badge badge-success">Active</span>
             {% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
           </td>
-          <td>
+          <td data-label="" class="actions-cell">
+            <a href="{% url 'vendors:detail' v.pk %}" class="btn btn-outline btn-sm" style="border-color:var(--info);color:var(--info);">View</a>
             {% if can_edit %}
             <a href="{% url 'vendors:edit' v.pk %}" class="btn btn-outline btn-sm">Edit</a>
             {% endif %}

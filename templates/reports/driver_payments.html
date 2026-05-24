@@ -66,18 +66,18 @@
 <div class="card" style="margin-bottom:1rem;">
   <div class="card-header"><div class="card-title">Per Driver</div></div>
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr><th>Driver</th><th>Staff ID</th><th>Payment Type</th><th>Trips</th><th>Total Paid</th></tr>
       </thead>
       <tbody>
         {% for row in summary %}
         <tr>
-          <td><strong>{{ row.driver__full_name }}</strong></td>
-          <td>{{ row.driver__staff_id }}</td>
-          <td><span class="badge badge-muted">{{ row.driver__payment_type|title }}</span></td>
-          <td>{{ row.trip_count }}</td>
-          <td class="fw-600">₦ {{ row.total_paid|floatformat:2 }}</td>
+          <td data-label="Driver"><strong>{{ row.driver__full_name }}</strong></td>
+          <td data-label="Staff ID">{{ row.driver__staff_id }}</td>
+          <td data-label="Payment Type"><span class="badge badge-muted">{{ row.driver__payment_type|title }}</span></td>
+          <td data-label="Trips">{{ row.trip_count }}</td>
+          <td data-label="Total Paid" class="fw-600">₦ {{ row.total_paid|floatformat:2 }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="5">
@@ -98,18 +98,18 @@
     <div class="card-title">Trip Detail <span style="color:var(--text-muted);font-size:.8rem;font-weight:400;">(latest 200)</span></div>
   </div>
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr><th>Date</th><th>Driver</th><th>Vehicle</th><th>From → To</th><th>Amount</th></tr>
       </thead>
       <tbody>
         {% for t in trips %}
         <tr>
-          <td>{{ t.trip_date|date:"j M Y" }}</td>
-          <td>{{ t.driver.full_name }}</td>
-          <td>{{ t.vehicle.plate_number }}</td>
-          <td>{{ t.from_label }} → {{ t.to_label }}</td>
-          <td class="fw-600">₦ {{ t.amount_paid|floatformat:2 }}</td>
+          <td data-label="Date">{{ t.trip_date|date:"j M Y" }}</td>
+          <td data-label="Driver">{{ t.driver.full_name }}</td>
+          <td data-label="Vehicle">{{ t.vehicle.plate_number }}</td>
+          <td data-label="From → To">{{ t.from_label }} → {{ t.to_label }}</td>
+          <td data-label="Amount" class="fw-600">₦ {{ t.amount_paid|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>

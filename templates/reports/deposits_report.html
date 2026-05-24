@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Station Deposits Report{% endblock %}
+{% block page_title %}Station Deposits{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'reports:index' %}">Reports</a>
+  <span class="sep">›</span> Station Deposits
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Station Deposits Report</h1>
+    <p>Money paid into fuel station accounts in the selected period</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-body" style="padding:.85rem 1.25rem;">
+    <form method="get" class="filter-bar" style="flex-wrap:wrap;">
+      <div class="form-group" style="margin-bottom:0;min-width:160px;">
+        <label class="form-label" style="margin-bottom:.25rem;">From</label>
+        <input type="date" name="date_from" class="form-control" value="{{ date_from|date:'Y-m-d' }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0;min-width:160px;">
+        <label class="form-label" style="margin-bottom:.25rem;">To</label>
+        <input type="date" name="date_to" class="form-control" value="{{ date_to|date:'Y-m-d' }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0;min-width:200px;">
+        <label class="form-label" style="margin-bottom:.25rem;">Station</label>
+        <select name="station" class="form-select">
+          <option value="">All Stations</option>
+          {% for s in stations %}
+          <option value="{{ s.pk }}" {% if station_filter == s.pk|stringformat:"s" %}selected{% endif %}>
+            {{ s.name }}{% if not s.is_active %} (inactive){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:.65rem;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a href="?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&station={{ station_filter }}&format=excel" class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </a>
+        <a href="?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&station={{ station_filter }}&format=pdf" class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </a>
+        {% if station_filter or request.GET.date_from %}
+        <a href="{% url 'reports:deposits_report' %}" class="btn btn-outline">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(76,175,80,.13);color:#206a23;"><i class="fa-solid fa-money-bill-wave"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">₦ {{ total|floatformat:2 }}</div>
+      <div class="stat-label">Total Deposited</div>
+      <div class="stat-sub">{{ count }} deposit{{ count|pluralize }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(13,106,158,.12);color:var(--info);"><i class="fa-solid fa-gas-pump"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ station_summary|length }}</div>
+      <div class="stat-label">Station{{ station_summary|length|pluralize }} Funded</div>
+      <div class="stat-sub">In selected period</div>
+    </div>
+  </div>
+</div>
+
+{% if station_summary %}
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-header"><div class="card-title">By Station</div></div>
+  <div class="card-body" style="padding:0;">
+    <table class="table-responsive" style="width:100%;border-collapse:collapse;font-size:.85rem;">
+      <thead>
+        <tr style="background:var(--surface-2);">
+          <th style="text-align:left;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Station</th>
+          <th style="text-align:right;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Deposits</th>
+          <th style="text-align:right;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Total (₦)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in station_summary %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td data-label="Station" style="padding:.55rem .85rem;">
+            <a href="{% url 'vendors:detail' s.vendor__id %}" style="color:var(--navy);text-decoration:none;font-weight:600;">{{ s.vendor__name }}</a>
+          </td>
+          <td data-label="Deposits" style="padding:.55rem .85rem;text-align:right;">{{ s.n }}</td>
+          <td data-label="Total" style="padding:.55rem .85rem;text-align:right;font-weight:600;color:#206a23;">₦ {{ s.total|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Detail table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">All Deposits</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    {% if deposits %}
+    <table class="table-responsive" style="width:100%;border-collapse:collapse;font-size:.85rem;">
+      <thead>
+        <tr style="background:var(--surface-2);">
+          <th style="text-align:left;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Date</th>
+          <th style="text-align:left;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Station</th>
+          <th style="text-align:right;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Amount</th>
+          <th style="text-align:left;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Reference</th>
+          <th style="text-align:left;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Recorded By</th>
+          <th style="text-align:left;padding:.6rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Recorded On</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deposits %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td data-label="Date" style="padding:.55rem .85rem;">{{ d.deposit_date|date:"j M Y" }}</td>
+          <td data-label="Station" style="padding:.55rem .85rem;">
+            <a href="{% url 'vendors:detail' d.vendor.pk %}" style="color:var(--navy);text-decoration:none;">{{ d.vendor.name }}</a>
+          </td>
+          <td data-label="Amount" style="padding:.55rem .85rem;text-align:right;font-weight:600;color:#206a23;">₦ {{ d.amount|floatformat:2 }}</td>
+          <td data-label="Reference" style="padding:.55rem .85rem;font-family:monospace;font-size:.78rem;color:var(--text-muted);">{{ d.reference_number|default:"—" }}</td>
+          <td data-label="Recorded By" style="padding:.55rem .85rem;">{{ d.created_by.full_name }}</td>
+          <td data-label="Recorded On" style="padding:.55rem .85rem;color:var(--text-muted);font-size:.78rem;">{{ d.created_at|date:"j M Y, H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--surface-2);font-weight:700;">
+          <td data-label="" colspan="2" style="padding:.65rem .85rem;text-align:right;">TOTAL</td>
+          <td data-label="Amount" style="padding:.65rem .85rem;text-align:right;color:#206a23;">₦ {{ total|floatformat:2 }}</td>
+          <td data-label="" colspan="3"></td>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:2.5rem 1.5rem;">
+      <span class="empty-icon">💵</span>
+      <div class="empty-title">No deposits in this period</div>
+      <div class="empty-sub">Try widening the date range or selecting a different station.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

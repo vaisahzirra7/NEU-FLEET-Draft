@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.name }}{% endblock %}
+{% block page_title %}{{ obj.name }}{% endblock %}
+{% block breadcrumb %}
+  <span class="sep">›</span> <a href="{% url 'vendors:list' %}">Vendors</a>
+  <span class="sep">›</span> {{ obj.name }}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.balance-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.85rem;margin-bottom:1.25rem;}
+.balance-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.95rem 1.05rem;}
+.balance-card .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);font-weight:600;margin-bottom:.3rem;}
+.balance-card .value{font-size:1.4rem;font-weight:700;color:var(--text);}
+.balance-card.balance-pos .value{color:#206a23;}
+.balance-card.balance-neg .value{color:var(--danger);}
+.balance-card.balance-low .value{color:#7c5800;}
+.balance-card.balance-redeemed .value{color:var(--danger);}
+.balance-card .sub{font-size:.72rem;color:var(--text-muted);margin-top:.25rem;}
+.ledger-tabs{display:flex;gap:.25rem;border-bottom:1px solid var(--border);margin-bottom:1rem;}
+.ledger-tab{padding:.55rem 1rem;font-size:.85rem;color:var(--text-muted);font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.ledger-tab.active{color:var(--navy);border-bottom-color:var(--navy);}
+.ledger-panel{display:none;}
+.ledger-panel.active{display:block;}
+.pill{display:inline-block;padding:.15rem .55rem;border-radius:10px;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.pill-redeemed{background:rgba(76,175,80,.13);color:#206a23;}
+.pill-issued{background:rgba(245,158,11,.15);color:#7c5800;}
+.pill-approved{background:rgba(13,106,158,.13);color:#0d6a9e;}
+.pill-rejected,.pill-cancelled,.pill-expired{background:rgba(216,73,55,.13);color:var(--danger);}
+.alert-low{background:#fff8e6;border:1px solid #f0c66c;border-radius:8px;padding:.7rem .9rem;margin-bottom:1rem;font-size:.83rem;color:#7c5800;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>
+      {{ obj.name }}
+      {% if not obj.is_active %}<span class="pill pill-rejected" style="margin-left:.5rem;">Inactive</span>{% endif %}
+    </h1>
+    <p>{{ obj.get_type_display }}{% if obj.phone %} &nbsp;·&nbsp; {{ obj.phone }}{% endif %}{% if obj.address %} &nbsp;·&nbsp; {{ obj.address }}{% endif %}</p>
+  </div>
+  <div style="display:flex;gap:.5rem;">
+    {% if obj.type == 'fuel_station' and can_record_deposit and obj.is_active %}
+    <a href="{% url 'station_deposits:create' %}?station={{ obj.pk }}" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Record Deposit
+    </a>
+    {% endif %}
+    {% if can_edit %}
+    <a href="{% url 'vendors:edit' obj.pk %}" class="btn btn-outline">Edit</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if obj.type == 'fuel_station' %}
+
+  {% if obj.is_low_balance %}
+  <div class="alert-low">
+    <strong>Low balance.</strong> Available balance is below the configured threshold. Record a new deposit soon to avoid disruption.
+  </div>
+  {% endif %}
+
+  {# ─── Balance summary cards ─── #}
+  <div class="balance-cards">
+    <div class="balance-card {% if obj.balance < 0 %}balance-neg{% elif obj.is_low_balance %}balance-low{% else %}balance-pos{% endif %}">
+      <div class="label">Balance</div>
+      <div class="value">₦ {{ obj.balance|floatformat:2 }}</div>
+      <div class="sub">AVAILABLE AT THE STATION</div>
+    </div>
+    <div class="balance-card">
+      <div class="label">Total Deposited</div>
+      <div class="value">₦ {{ obj.total_deposits|floatformat:2 }}</div>
+      <div class="sub">ALL TIME</div>
+    </div>
+    <div class="balance-card balance-redeemed">
+      <div class="label">Redeemed</div>
+      <div class="value">₦ {{ obj.total_redeemed_value|floatformat:2 }}</div>
+      <div class="sub">COUPONS CASHED</div>
+    </div>
+    <div class="balance-card">
+      <div class="label">Outstanding</div>
+      <div class="value">₦ {{ obj.total_outstanding_value|floatformat:2 }}</div>
+      <div class="sub">ISSUED, NOT REDEEMED</div>
+    </div>
+  </div>
+
+  {# ─── Date filter ─── #}
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-body" style="padding:.7rem 1rem;">
+      <form method="get" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:.83rem;color:var(--text-muted);">Filter ledger:</label>
+        <input type="date" name="date_from" value="{{ filter_date_from }}" class="form-control" style="width:auto;">
+        <span style="color:var(--text-muted);">to</span>
+        <input type="date" name="date_to" value="{{ filter_date_to }}" class="form-control" style="width:auto;">
+        <button type="submit" class="btn btn-outline btn-sm">Apply</button>
+        {% if filter_date_from or filter_date_to %}
+        <a href="{% url 'vendors:detail' obj.pk %}" class="btn btn-outline btn-sm">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  {# ─── Ledger tabs ─── #}
+  <div class="ledger-tabs">
+    <button type="button" class="ledger-tab active" data-target="tab-deposits">
+      Deposits <span style="color:var(--text-muted);">({{ deposits|length }})</span>
+    </button>
+    <button type="button" class="ledger-tab" data-target="tab-coupons">
+      Coupons <span style="color:var(--text-muted);">({{ coupons|length }})</span>
+    </button>
+  </div>
+
+  {# ─── Deposits tab ─── #}
+  <div id="tab-deposits" class="ledger-panel active">
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        {% if deposits %}
+        <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+          <thead>
+            <tr style="background:var(--surface-2);">
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Date</th>
+              <th style="text-align:right;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Amount</th>
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Reference</th>
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Recorded By</th>
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Note</th>
+              {% if can_delete_deposit %}
+              <th style="text-align:right;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);width:60px;"></th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in deposits %}
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:.6rem .85rem;">{{ d.deposit_date|date:"j M Y" }}</td>
+              <td style="padding:.6rem .85rem;text-align:right;font-weight:600;color:#206a23;">₦ {{ d.amount|floatformat:2 }}</td>
+              <td style="padding:.6rem .85rem;font-family:monospace;font-size:.78rem;color:var(--text-muted);">{{ d.reference_number|default:"—" }}</td>
+              <td style="padding:.6rem .85rem;">{{ d.created_by.full_name }}</td>
+              <td style="padding:.6rem .85rem;color:var(--text-muted);font-size:.78rem;">{{ d.note|default:"—"|truncatechars:60 }}</td>
+              {% if can_delete_deposit %}
+              <td style="padding:.6rem .85rem;text-align:right;">
+                <a href="{% url 'station_deposits:delete' d.pk %}" style="color:var(--danger);font-size:.78rem;text-decoration:none;" title="Delete (Super Admin only)">Delete</a>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:2.5rem 1.5rem;">
+          <span class="empty-icon">💵</span>
+          <div class="empty-title">No deposits yet</div>
+          <div class="empty-sub">{% if can_record_deposit %}Record the first one with the button above.{% else %}Ask an admin to record deposits.{% endif %}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ─── Coupons tab ─── #}
+  <div id="tab-coupons" class="ledger-panel">
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        {% if coupons %}
+        <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+          <thead>
+            <tr style="background:var(--surface-2);">
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Coupon</th>
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Asset</th>
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Status</th>
+              <th style="text-align:right;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Litres</th>
+              <th style="text-align:right;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Value</th>
+              <th style="text-align:left;padding:.65rem .85rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border);">Issued</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in coupons %}
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:.6rem .85rem;">
+                <a href="{% url 'coupons:detail' c.pk %}" style="color:var(--navy);text-decoration:none;font-weight:600;">{{ c.coupon_id }}</a>
+              </td>
+              <td style="padding:.6rem .85rem;">{{ c.asset_label }}</td>
+              <td style="padding:.6rem .85rem;">
+                <span class="pill pill-{{ c.status }}">{{ c.get_status_display }}</span>
+              </td>
+              <td style="padding:.6rem .85rem;text-align:right;">{{ c.litres|floatformat:2 }}</td>
+              <td style="padding:.6rem .85rem;text-align:right;font-weight:600;{% if c.status == 'redeemed' %}color:var(--danger);{% endif %}">
+                {% if c.status == 'redeemed' %}−{% endif %}₦ {{ c.total_value|floatformat:2 }}
+              </td>
+              <td style="padding:.6rem .85rem;color:var(--text-muted);font-size:.78rem;">{{ c.issue_datetime|date:"j M Y" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:2.5rem 1.5rem;">
+          <span class="empty-icon">📋</span>
+          <div class="empty-title">No coupons issued at this station yet</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+{% else %}
+
+  {# ─── Non-fuel-station vendor: simple spend summary ─── #}
+  <div class="balance-cards">
+    <div class="balance-card">
+      <div class="label">Fuel Spend</div>
+      <div class="value">₦ {{ fuel_spend|floatformat:2 }}</div>
+    </div>
+    <div class="balance-card">
+      <div class="label">Maintenance Spend</div>
+      <div class="value">₦ {{ maint_spend|floatformat:2 }}</div>
+    </div>
+    <div class="balance-card">
+      <div class="label">Total Spend</div>
+      <div class="value">₦ {{ total_spend|floatformat:2 }}</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="padding:1.25rem;color:var(--text-muted);">
+      The deposit ledger is only available for fuel stations.
+    </div>
+  </div>
+
+{% endif %}
+
+<script>
+(function(){
+  var tabs = document.querySelectorAll('.ledger-tab');
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      var target = this.getAttribute('data-target');
+      tabs.forEach(function(x){ x.classList.remove('active'); });
+      this.classList.add('active');
+      document.querySelectorAll('.ledger-panel').forEach(function(p){
+        p.classList.toggle('active', p.id === target);
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

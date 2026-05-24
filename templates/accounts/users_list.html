@@ -20,7 +20,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Name</th>
@@ -35,7 +35,7 @@
       <tbody>
         {% for u in users %}
         <tr>
-          <td>
+          <td data-label="Name">
             <div style="display:flex;align-items:center;gap:.6rem;">
               <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;flex-shrink:0;">
                 {{ u.full_name|slice:":1"|upper }}
@@ -46,24 +46,24 @@
               </div>
             </div>
           </td>
-          <td style="color:var(--text-muted);font-size:.85rem;">{{ u.email }}</td>
-          <td>
+          <td data-label="Email" style="color:var(--text-muted);font-size:.85rem;">{{ u.email }}</td>
+          <td data-label="Role">
             {% if u.role %}
               <span class="badge badge-navy">{{ u.role.name }}</span>
             {% else %}
               <span style="color:var(--text-muted);font-size:.82rem;">—</span>
             {% endif %}
           </td>
-          <td style="font-size:.85rem;">{{ u.department.name|default:"—" }}</td>
-          <td>
+          <td data-label="Department" style="font-size:.85rem;">{{ u.department.name|default:"—" }}</td>
+          <td data-label="Status">
             {% if u.is_active %}
               <span class="badge badge-success">Active</span>
             {% else %}
               <span class="badge badge-muted">Inactive</span>
             {% endif %}
           </td>
-          <td style="font-size:.8rem;color:var(--text-muted);">{{ u.created_at|date:"d M Y" }}</td>
-          <td>
+          <td data-label="Created" style="font-size:.8rem;color:var(--text-muted);">{{ u.created_at|date:"d M Y" }}</td>
+          <td data-label="" class="actions-cell">
             <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-outline btn-sm">Edit</a>
           </td>
         </tr>

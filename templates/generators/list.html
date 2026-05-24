@@ -22,7 +22,7 @@
 <div class="card" style="margin-bottom:1rem;">
   <div class="card-body" style="padding:.85rem 1.25rem;">
     <form method="get" class="filter-bar" style="flex-wrap:wrap;gap:.5rem;">
-      <div class="search-wrap" style="flex:1 1 280px;">
+      <div class="search-wrap">
         <span class="si"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" name="q" value="{{ q }}" placeholder="Tag, name, make, serial..." class="form-control">
       </div>
@@ -48,7 +48,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Tag</th>
@@ -64,18 +64,18 @@
       <tbody>
         {% for g in generators %}
         <tr>
-          <td><strong>{{ g.tag }}</strong></td>
-          <td>{{ g.name }}</td>
-          <td>{{ g.make }}{% if g.model %} — {{ g.model }}{% endif %}</td>
-          <td>{{ g.kva_rating }}</td>
-          <td><span class="badge badge-muted">{{ g.get_fuel_type_display }}</span></td>
-          <td>{{ g.building }}{% if g.location_note %}<br><span style="font-size:.78rem;color:var(--text-muted);">{{ g.location_note }}</span>{% endif %}</td>
-          <td>
+          <td data-label="Tag"><strong>{{ g.tag }}</strong></td>
+          <td data-label="Name">{{ g.name }}</td>
+          <td data-label="Make / Model">{{ g.make }}{% if g.model %} — {{ g.model }}{% endif %}</td>
+          <td data-label="kVA">{{ g.kva_rating }}</td>
+          <td data-label="Fuel"><span class="badge badge-muted">{{ g.get_fuel_type_display }}</span></td>
+          <td data-label="Building">{{ g.building }}{% if g.location_note %}<br><span style="font-size:.78rem;color:var(--text-muted);">{{ g.location_note }}</span>{% endif %}</td>
+          <td data-label="Status">
             {% if g.status == "active" %}<span class="badge badge-success">Active</span>
             {% elif g.status == "under_repair" %}<span class="badge badge-amber">Under Repair</span>
             {% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
           </td>
-          <td><a href="{% url 'generators:detail' g.pk %}" class="btn btn-outline btn-sm">View</a></td>
+          <td data-label="" class="actions-cell"><a href="{% url 'generators:detail' g.pk %}" class="btn btn-outline btn-sm">View</a></td>
         </tr>
         {% empty %}
         <tr><td colspan="8">

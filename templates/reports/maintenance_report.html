@@ -20,13 +20,13 @@
 <div class="card">
   <div class="card-header"><div class="card-title">All Maintenance Records</div></div>
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead><tr><th>Date</th><th>Asset</th><th>Type</th><th>Description</th><th>Vendor</th><th>Cost</th><th>Approved By</th></tr></thead>
       <tbody>
         {% for rec in records %}
         <tr>
-          <td>{{ rec.service_date|date:"j M Y" }}</td>
-          <td>
+          <td data-label="Date">{{ rec.service_date|date:"j M Y" }}</td>
+          <td data-label="Asset">
             {% if rec.is_for_vehicle %}
               <div>
                 <a href="{% url 'vehicles:detail' rec.vehicle.pk %}" class="fw-600">{{ rec.vehicle.plate_number }}</a>
@@ -39,11 +39,11 @@
               </div>
             {% endif %}
           </td>
-          <td><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
-          <td style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ rec.items_summary }}">{{ rec.items_summary|default:"—" }}</td>
-          <td>{{ rec.effective_vendor_name }}</td>
-          <td class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
-          <td style="color:var(--text-muted);font-size:.78rem;">{{ rec.approved_by }}</td>
+          <td data-label="Type"><span class="badge badge-navy">{{ rec.get_service_type_display }}</span></td>
+          <td data-label="Description" style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ rec.items_summary }}">{{ rec.items_summary|default:"—" }}</td>
+          <td data-label="Vendor">{{ rec.effective_vendor_name }}</td>
+          <td data-label="Cost" class="fw-600">₦ {{ rec.total_cost|floatformat:2 }}</td>
+          <td data-label="Approved By" style="color:var(--text-muted);font-size:.78rem;">{{ rec.approved_by }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="7"><div class="empty-state"><span class="empty-icon">🔧</span><div class="empty-title">No records in this period</div></div></td></tr>

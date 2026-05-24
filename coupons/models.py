@@ -117,6 +117,14 @@ class FuelCoupon(models.Model):
         help_text="True if the issuer approved their own coupon. Surfaced in audit."
     )
 
+    # ── balance override (Stage 2 of station deposits) ──
+    issued_with_override = models.BooleanField(
+        default=False,
+        help_text="True if this coupon was issued despite the fuel station having "
+                  "insufficient available balance, via Super Admin override. "
+                  "Surfaced in audit and reports.",
+    )
+
     # ── optional note ──
     purpose = models.CharField(
         max_length=255, blank=True,

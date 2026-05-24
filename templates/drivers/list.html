@@ -37,7 +37,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Name</th>
@@ -53,14 +53,14 @@
       <tbody>
         {% for d in drivers %}
         <tr>
-          <td>
+          <td data-label="Name">
             <a href="{% url 'drivers:detail' d.pk %}" class="fw-600" style="color:var(--navy);">{{ d.full_name }}</a>
           </td>
-          <td class="font-mono" style="font-size:.78rem;">{{ d.staff_id }}</td>
-          <td>{{ d.phone }}</td>
-          <td class="font-mono" style="font-size:.78rem;">{{ d.license_no }}</td>
-          <td>{{ d.get_license_class_display }}</td>
-          <td>
+          <td data-label="Staff ID" class="font-mono" style="font-size:.78rem;">{{ d.staff_id }}</td>
+          <td data-label="Phone">{{ d.phone }}</td>
+          <td data-label="License No." class="font-mono" style="font-size:.78rem;">{{ d.license_no }}</td>
+          <td data-label="Class">{{ d.get_license_class_display }}</td>
+          <td data-label="License Expiry">
             {% if d.is_license_expired %}
               <span class="badge badge-danger">Expired {{ d.license_expiry }}</span>
             {% elif d.is_license_expiring_soon %}
@@ -69,14 +69,14 @@
               {{ d.license_expiry }}
             {% endif %}
           </td>
-          <td>
+          <td data-label="Status">
             {% if d.status == "active" %}
               <span class="badge badge-success">Active</span>
             {% else %}
               <span class="badge badge-muted">Inactive</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="" class="actions-cell">
             <div class="d-flex gap-1">
               <a href="{% url 'drivers:detail' d.pk %}" class="btn btn-outline btn-sm">View</a>
               {% if can_edit %}<a href="{% url 'drivers:edit' d.pk %}" class="btn btn-outline btn-sm">Edit</a>{% endif %}

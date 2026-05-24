@@ -20,7 +20,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Role Name</th>
@@ -34,12 +34,12 @@
       <tbody>
         {% for role in roles %}
         <tr>
-          <td class="fw-600">{{ role.name }}</td>
-          <td style="color:var(--text-muted);font-size:.85rem;">{{ role.description|default:"—" }}</td>
-          <td>
+          <td data-label="Role Name" class="fw-600">{{ role.name }}</td>
+          <td data-label="Description" style="color:var(--text-muted);font-size:.85rem;">{{ role.description|default:"—" }}</td>
+          <td data-label="Users">
             <span style="font-size:.88rem;">{{ role.users.count }}</span>
           </td>
-          <td>
+          <td data-label="Permissions">
             <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
               {% for perm in role.permissions.all %}
                 {% if perm.is_full_access %}
@@ -52,14 +52,14 @@
               {% endfor %}
             </div>
           </td>
-          <td>
+          <td data-label="Type">
             {% if role.is_system_role %}
               <span class="badge badge-muted">System</span>
             {% else %}
               <span class="badge badge-navy">Custom</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="" class="actions-cell">
             {% if not role.is_system_role %}
             <a href="{% url 'accounts:role_edit' role.pk %}" class="btn btn-outline btn-sm">Edit</a>
             {% else %}

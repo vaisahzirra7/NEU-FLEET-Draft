@@ -8,6 +8,70 @@ from audit.models import AuditLog
 
 
 @login_required
+def detail_view(request, pk):
+    """
+    Vendor detail page. Especially useful for fuel stations where it shows
+    the deposit/coupon ledger and current balance.
+
+    For non-fuel-station vendors, shows basic spend summary.
+    """
+    if not request.user.has_module_perm("vendors", "read"):
+        return HttpResponseForbidden()
+
+    vendor = get_object_or_404(Vendor, pk=pk)
+
+    # Common: spend summary across all vendor types
+    from fuel_logs.models import FuelLog
+    from maintenance.models import MaintenanceRecord
+    fuel_spend  = FuelLog.objects.filter(fuel_station=vendor).aggregate(t=Sum("actual_cost"))["t"] or 0
+    maint_spend = MaintenanceRecord.objects.filter(vendor=vendor).aggregate(t=Sum("total_cost"))["t"] or 0
+
+    ctx = {
+        "obj":          vendor,
+        "fuel_spend":   fuel_spend,
+        "maint_spend":  maint_spend,
+        "total_spend":  fuel_spend + maint_spend,
+        "can_edit":     request.user.has_module_perm("vendors", "edit"),
+    }
+
+    # Fuel-station-specific: deposit and coupon ledger
+    if vendor.type == Vendor.TYPE_FUEL:
+        from coupons.models import FuelCoupon
+
+        # Deposit history (with filters)
+        deposits_qs = vendor.deposits.select_related("created_by")
+
+        date_from = request.GET.get("date_from", "").strip()
+        date_to   = request.GET.get("date_to", "").strip()
+        if date_from:
+            deposits_qs = deposits_qs.filter(deposit_date__gte=date_from)
+        if date_to:
+            deposits_qs = deposits_qs.filter(deposit_date__lte=date_to)
+
+        # Coupon history at this station (with same date filter applied
+        # to issue_datetime so totals at the bottom line up)
+        coupons_qs = FuelCoupon.objects.filter(fuel_station=vendor).select_related(
+            "vehicle", "generator", "driver", "issued_by", "approved_by"
+        )
+        if date_from:
+            coupons_qs = coupons_qs.filter(issue_datetime__date__gte=date_from)
+        if date_to:
+            coupons_qs = coupons_qs.filter(issue_datetime__date__lte=date_to)
+
+        ctx.update({
+            "deposits":           deposits_qs[:100],
+            "coupons":            coupons_qs.order_by("-issue_datetime")[:100],
+            "filter_date_from":   date_from,
+            "filter_date_to":     date_to,
+            "can_record_deposit": request.user.has_module_perm("station_deposits", "write"),
+            "can_delete_deposit": request.user.is_system_admin,
+        })
+
+    return render(request, "vendors/detail.html", ctx)
+
+
+
+@login_required
 def list_view(request):
     if not request.user.has_module_perm("vendors", "read"):
         return HttpResponseForbidden()

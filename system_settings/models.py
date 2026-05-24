@@ -84,6 +84,12 @@ class SystemSettings(models.Model):
         help_text="Use direct SSL/TLS on connect (port 465). Mutually exclusive with TLS."
     )
 
+    # ── Fuel station ledger ────────────────────────────────────────────────
+    low_balance_threshold = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="A fuel station's available balance below this triggers a low-balance alert. Set to 0 to disable alerts."
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(
         "accounts.User", on_delete=models.SET_NULL,

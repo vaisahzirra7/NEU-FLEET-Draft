@@ -38,7 +38,7 @@
 
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th>Asset</th>
@@ -55,7 +55,7 @@
       <tbody>
         {% for r in records %}
         <tr>
-          <td>
+          <td data-label="Asset">
             {% if r.is_for_vehicle %}
               <div>
                 <a href="{% url 'vehicles:detail' r.vehicle.pk %}" class="fw-600">{{ r.vehicle.plate_number }}</a>
@@ -68,9 +68,9 @@
               </div>
             {% endif %}
           </td>
-          <td>{{ r.service_date|date:"j M Y" }}</td>
-          <td><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
-          <td style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{% if r.description %}{{ r.description }}{% else %}{% for it in r.items.all %}{{ it.description }}{% if not forloop.last %} · {% endif %}{% endfor %}{% endif %}">
+          <td data-label="Date">{{ r.service_date|date:"j M Y" }}</td>
+          <td data-label="Service Type"><span class="badge badge-navy">{{ r.get_service_type_display }}</span></td>
+          <td data-label="Description" style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{% if r.description %}{{ r.description }}{% else %}{% for it in r.items.all %}{{ it.description }}{% if not forloop.last %} · {% endif %}{% endfor %}{% endif %}">
             {% if r.description %}
               {{ r.description }}
             {% else %}
@@ -78,9 +78,9 @@
               {% if not r.items.all %}—{% endif %}
             {% endif %}
           </td>
-          <td>{{ r.effective_vendor_name }}</td>
-          <td class="fw-600">₦ {{ r.total_cost|floatformat:2 }}</td>
-          <td>
+          <td data-label="Vendor">{{ r.effective_vendor_name }}</td>
+          <td data-label="Cost" class="fw-600">₦ {{ r.total_cost|floatformat:2 }}</td>
+          <td data-label="Next Service">
             {% if r.next_service_date %}
               {% if r.is_service_due_soon %}
                 <span class="badge badge-warning">{{ r.next_service_date }}</span>
@@ -89,8 +89,8 @@
               {% endif %}
             {% else %}—{% endif %}
           </td>
-          <td style="color:var(--text-muted);font-size:.78rem;">{{ r.approved_by }}</td>
-          <td>
+          <td data-label="Approved By" style="color:var(--text-muted);font-size:.78rem;">{{ r.approved_by }}</td>
+          <td data-label="" class="actions-cell">
             <a href="{% url 'maintenance:detail' r.pk %}" class="btn btn-outline btn-sm">View</a>
           </td>
         </tr>

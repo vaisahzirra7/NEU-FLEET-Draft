@@ -42,7 +42,7 @@
     </div>
 
     <div class="table-wrapper">
-      <table class="data-table">
+      <table class="data-table table-responsive">
         <thead>
           <tr>
             <th style="width:36px;"></th>
@@ -60,12 +60,12 @@
         <tbody>
           {% for c in coupons %}
           <tr>
-            <td>
+            <td data-label="">
               <input type="checkbox" name="coupon_ids" value="{{ c.pk }}"
                      class="coupon-cb" style="width:16px;height:16px;cursor:pointer;">
             </td>
-            <td><a href="{% url 'coupons:detail' c.pk %}" class="coupon-id fw-600">{{ c.coupon_id }}</a></td>
-            <td>
+            <td data-label="Coupon ID"><a href="{% url 'coupons:detail' c.pk %}" class="coupon-id fw-600">{{ c.coupon_id }}</a></td>
+            <td data-label="Asset">
               {% if c.is_for_vehicle %}
                 <div>
                   <a href="{% url 'vehicles:detail' c.vehicle.pk %}">{{ c.vehicle.plate_number }}</a>
@@ -78,19 +78,19 @@
                 </div>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Driver / Building">
               {% if c.is_for_vehicle %}
                 {{ c.driver.full_name|default:"—" }}
               {% else %}
                 <span style="color:var(--text-muted);">{{ c.generator.building }}</span>
               {% endif %}
             </td>
-            <td>{{ c.fuel_station.name }}</td>
-            <td>{{ c.litres }} L</td>
-            <td class="fw-600">₦ {{ c.total_value|floatformat:2 }}</td>
-            <td>{{ c.issued_by.full_name }}</td>
-            <td style="color:var(--text-muted);font-size:.78rem;">{{ c.issue_datetime|date:"j M Y H:i" }}</td>
-            <td>
+            <td data-label="Fuel Station">{{ c.fuel_station.name }}</td>
+            <td data-label="Litres">{{ c.litres }} L</td>
+            <td data-label="Total Value" class="fw-600">₦ {{ c.total_value|floatformat:2 }}</td>
+            <td data-label="Issued By">{{ c.issued_by.full_name }}</td>
+            <td data-label="Submitted" style="color:var(--text-muted);font-size:.78rem;">{{ c.issue_datetime|date:"j M Y H:i" }}</td>
+            <td data-label="" class="actions-cell">
               <div class="d-flex gap-1">
                 <a href="{% url 'coupons:approve' c.pk %}" class="btn btn-primary btn-sm">Review</a>
               </div>

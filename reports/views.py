@@ -436,6 +436,8 @@ def dashboard(request):
         "monthly_fuel_vehicles": monthly_fuel_vehicles,
         "top_vehicles": top_vehicles,
         "recent_activity": recent_activity,
+        # Fuel station ledger (Stage 2b of station deposits)
+        "fuel_balance":          _fuel_balance_summary(request.user),
         # Permission flags for dynamic dashboard
         "can_see_coupons":     request.user.has_module_perm("coupons", "read"),
         "can_see_fuel_logs":   request.user.has_module_perm("fuel_logs", "read"),
@@ -447,7 +449,66 @@ def dashboard(request):
         "can_see_audit":       request.user.has_module_perm("audit", "read"),
         "can_edit_vehicles":   request.user.has_module_perm("vehicles", "edit"),
         "can_issue_coupons":   request.user.has_module_perm("coupons", "write"),
+        "can_record_deposit":  request.user.has_module_perm("station_deposits", "write"),
     })
+
+
+def _fuel_balance_summary(user):
+    """
+    Compute the fuel station summary for the dashboard tile + low-balance list.
+
+    Returns None if the user lacks coupons:read (they shouldn't see the tile).
+    Otherwise returns a dict with:
+        org_balance      — sum of (deposits − redeemed) across active stations
+        org_available    — sum of available_balance across active stations
+        org_outstanding  — sum of outstanding coupon value across active stations
+        station_count    — how many active fuel stations
+        low_stations     — list of stations below threshold (or [] if disabled)
+        threshold        — the configured low-balance threshold
+    """
+    if not user.has_module_perm("coupons", "read"):
+        return None
+
+    from vendors.models import Vendor
+    from system_settings.models import SystemSettings
+    from decimal import Decimal
+
+    try:
+        threshold = SystemSettings.get().low_balance_threshold or Decimal("0.00")
+    except Exception:
+        threshold = Decimal("0.00")
+
+    active_stations = Vendor.objects.filter(
+        type=Vendor.TYPE_FUEL, is_active=True
+    ).order_by("name")
+
+    org_balance     = Decimal("0.00")
+    org_outstanding = Decimal("0.00")
+    low_stations    = []
+
+    for s in active_stations:
+        bal = s.balance
+        out = s.total_outstanding_value
+        org_balance     += bal
+        org_outstanding += out
+        # Flag as low if threshold > 0 AND available_balance is below it.
+        if threshold > 0 and (bal - out) < threshold:
+            low_stations.append({
+                "pk":          s.pk,
+                "name":        s.name,
+                "balance":     bal,
+                "available":   bal - out,
+                "outstanding": out,
+            })
+
+    return {
+        "org_balance":     org_balance,
+        "org_available":   org_balance - org_outstanding,
+        "org_outstanding": org_outstanding,
+        "station_count":   active_stations.count(),
+        "low_stations":    low_stations,
+        "threshold":       threshold,
+    }
 
 
 # ── Reports Index ────────────────────────────────────────────────────────
@@ -991,11 +1052,11 @@ def coupon_report(request):
 
 def _coupon_report_excel(ctx):
     df, dt = ctx["date_from"], ctx["date_to"]
-    n_cols = 8
+    n_cols = 9
     wb, ws = xl_workbook("Coupon Report")
     ws.sheet_view.showGridLines = False
     xl_title_block(ws, "Fuel Coupon Report", "All issued coupons", df, dt, n_cols=n_cols)
-    xl_header_row(ws, ["Coupon ID", "Issued", "Asset", "Driver / Building", "Station", "Litres", "Value (₦)", "Status"], 7)
+    xl_header_row(ws, ["Coupon ID", "Issued", "Asset", "Driver / Building", "Station", "Litres", "Value (₦)", "Status", "Override"], 7)
     for i, c in enumerate(ctx["coupons"], 8):
         if c.is_for_vehicle:
             asset_str   = c.vehicle.plate_number
@@ -1007,14 +1068,100 @@ def _coupon_report_excel(ctx):
             c.coupon_id, c.issue_datetime.strftime("%d/%m/%Y %H:%M"),
             asset_str, context_str, c.fuel_station.name,
             float(c.litres), float(c.total_value), c.get_status_display(),
+            "YES" if c.issued_with_override else "",
         ], i, shade=(i%2==0))
     totals_row = len(ctx["coupons"]) + 8
     xl_totals_row(ws, totals_row, n_cols, label_col=1,
                   value_cols=[7],
                   values=[float(ctx["total_value"])])
-    for col, w in zip(["A","B","C","D","E","F","G","H"], [24, 18, 14, 22, 22, 10, 16, 12]):
+    for col, w in zip(["A","B","C","D","E","F","G","H","I"], [24, 18, 14, 22, 22, 10, 16, 12, 10]):
         ws.column_dimensions[col].width = w
     return xl_response(wb, f"coupon_report_{df}_{dt}.xlsx")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# REPORT — Station Deposits
+# ═══════════════════════════════════════════════════════════════════════
+
+@login_required
+def deposits_report(request):
+    """List of all station deposits in a date range, filterable by station."""
+    if not request.user.has_module_perm("reports", "read"):
+        return HttpResponseForbidden()
+
+    from station_deposits.models import StationDeposit
+    from vendors.models import Vendor
+
+    date_from, date_to = parse_dates(request)
+    station_filter = request.GET.get("station", "")
+
+    qs = (
+        StationDeposit.objects
+        .filter(deposit_date__gte=date_from, deposit_date__lte=date_to)
+        .select_related("vendor", "created_by")
+        .order_by("-deposit_date", "-created_at")
+    )
+    if station_filter:
+        qs = qs.filter(vendor_id=station_filter)
+
+    total = qs.aggregate(t=Sum("amount"))["t"] or 0
+    count = qs.count()
+
+    # Per-station summary (for the "Summary" panel above the detail table)
+    station_summary = (
+        qs.values("vendor__id", "vendor__name")
+          .annotate(total=Sum("amount"), n=Count("id"))
+          .order_by("-total")
+    )
+
+    stations = Vendor.objects.filter(type=Vendor.TYPE_FUEL).order_by("name")
+
+    ctx = {
+        "deposits":        qs,
+        "date_from":       date_from,
+        "date_to":         date_to,
+        "total":           total,
+        "count":           count,
+        "station_summary": list(station_summary),
+        "stations":        stations,
+        "station_filter":  station_filter,
+    }
+
+    fmt = request.GET.get("format", "")
+    if fmt == "excel":
+        return _deposits_report_excel(ctx)
+    if fmt == "pdf":
+        return _deposits_report_pdf(request, ctx)
+
+    return render(request, "reports/deposits_report.html", ctx)
+
+
+def _deposits_report_excel(ctx):
+    df, dt = ctx["date_from"], ctx["date_to"]
+    n_cols = 6
+    wb, ws = xl_workbook("Station Deposits")
+    ws.sheet_view.showGridLines = False
+    xl_title_block(ws, "Station Deposits Report", "All fuel station deposits", df, dt, n_cols=n_cols)
+    xl_header_row(ws, ["Date", "Station", "Amount (₦)", "Reference", "Recorded By", "Recorded On"], 7)
+    for i, d in enumerate(ctx["deposits"], 8):
+        xl_data_row(ws, [
+            d.deposit_date.strftime("%d/%m/%Y"),
+            d.vendor.name,
+            float(d.amount),
+            d.reference_number or "—",
+            d.created_by.full_name,
+            d.created_at.strftime("%d/%m/%Y %H:%M"),
+        ], i, shade=(i % 2 == 0))
+    totals_row = ctx["count"] + 8
+    xl_totals_row(ws, totals_row, n_cols, label_col=1,
+                  value_cols=[3], values=[float(ctx["total"])])
+    for col, w in zip(["A", "B", "C", "D", "E", "F"], [14, 26, 18, 24, 22, 18]):
+        ws.column_dimensions[col].width = w
+    return xl_response(wb, f"station_deposits_{df}_{dt}.xlsx")
+
+
+def _deposits_report_pdf(request, ctx):
+    return render(request, "reports/pdf/deposits_report.html", ctx)
 
 
 # ═══════════════════════════════════════════════════════════════════════

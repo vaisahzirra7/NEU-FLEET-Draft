@@ -10,6 +10,7 @@ urlpatterns = [
     path("monthly/",          views.monthly_expense,    name="monthly_expense"),
     path("maintenance/",      views.maintenance_report, name="maintenance_report"),
     path("driver-payments/",  views.driver_payments,    name="driver_payments"),
+    path("deposits/",         views.deposits_report,    name="deposits_report"),
 
     # Report scheduling
     path("schedules/",                    views.schedule_list,     name="schedule_list"),

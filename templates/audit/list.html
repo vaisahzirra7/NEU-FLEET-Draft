@@ -70,7 +70,7 @@
 <!-- Log Table -->
 <div class="card">
   <div class="table-wrapper">
-    <table class="data-table">
+    <table class="data-table table-responsive">
       <thead>
         <tr>
           <th style="width:150px;">Timestamp</th>
@@ -84,14 +84,14 @@
       <tbody>
         {% for log in logs %}
         <tr>
-          <td style="font-size:.78rem;color:var(--text-muted);white-space:nowrap;">
+          <td data-label="Timestamp" style="font-size:.78rem;color:var(--text-muted);white-space:nowrap;">
             {{ log.timestamp|date:"d M Y" }}<br>
             <span style="font-size:.72rem;">{{ log.timestamp|date:"H:i" }}</span>
           </td>
-          <td>
+          <td data-label="User">
             <div style="font-size:.83rem;font-weight:500;">{{ log.user_name }}</div>
           </td>
-          <td>
+          <td data-label="Action">
             <span class="badge
               {% if log.action == 'create' %}badge-success
               {% elif log.action == 'edit' %}badge-navy
@@ -104,9 +104,9 @@
               {{ log.get_action_display }}
             </span>
           </td>
-          <td style="font-size:.82rem;color:var(--text-muted);">{{ log.module|title }}</td>
-          <td style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">#{{ log.record_id }}</td>
-          <td style="font-size:.82rem;color:var(--text-muted);">{{ log.detail|default:"—" }}</td>
+          <td data-label="Module" style="font-size:.82rem;color:var(--text-muted);">{{ log.module|title }}</td>
+          <td data-label="Record" style="font-size:.78rem;font-family:monospace;color:var(--text-muted);">#{{ log.record_id }}</td>
+          <td data-label="Detail" style="font-size:.82rem;color:var(--text-muted);">{{ log.detail|default:"—" }}</td>
         </tr>
         {% empty %}
         <tr>

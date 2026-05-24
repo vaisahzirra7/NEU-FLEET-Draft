@@ -137,6 +137,26 @@
             </div>
           </div>
 
+          <div class="section-divider">
+            <h3>Fuel Ledger</h3>
+            <p>Settings for the fuel station deposit / balance ledger.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Low Balance Threshold (₦)</label>
+            <input type="text" name="low_balance_threshold"
+              class="form-control {% if errors.low_balance_threshold %}field-error{% endif %}"
+              value="{{ post.low_balance_threshold|default:obj.low_balance_threshold }}"
+              {% if not can_edit_branding %}disabled{% endif %}
+              placeholder="e.g. 50000" inputmode="decimal">
+            {% if errors.low_balance_threshold %}<div class="error-msg">{{ errors.low_balance_threshold }}</div>{% endif %}
+            <div class="form-hint">
+              When a fuel station's balance falls below this number, it shows a "Low Balance" alert
+              on the station's detail page and on the dashboard. Set to <strong>0</strong> to disable
+              alerts entirely.
+            </div>
+          </div>
+
           {% if can_edit_branding %}
           <div class="d-flex gap-1 mt-2">
             <button type="submit" class="btn btn-primary">Save Branding</button>

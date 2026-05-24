@@ -97,11 +97,27 @@ def _save_branding(request, obj):
     system_name          = request.POST.get("system_name", "").strip()
     institution_name     = request.POST.get("institution_name", "").strip()
     institution_subtitle = request.POST.get("institution_subtitle", "").strip()
+    threshold_raw        = request.POST.get("low_balance_threshold", "").strip()
 
     if not institution_name:
         errors["institution_name"] = "Institution name is required."
     if not system_name:
         errors["system_name"] = "System name is required."
+
+    # Validate threshold
+    threshold = None
+    if threshold_raw:
+        try:
+            from decimal import Decimal as _D, InvalidOperation as _IO
+            threshold = _D(threshold_raw.replace(",", ""))
+            if threshold < 0:
+                errors["low_balance_threshold"] = "Threshold cannot be negative. Set to 0 to disable alerts."
+        except Exception:
+            errors["low_balance_threshold"] = "Enter a valid number (or 0 to disable alerts)."
+    else:
+        # Treat blank as zero (alerts disabled)
+        from decimal import Decimal as _D
+        threshold = _D("0")
 
     logo_file    = request.FILES.get("logo")
     favicon_file = request.FILES.get("favicon")
@@ -124,6 +140,7 @@ def _save_branding(request, obj):
             ("system_name", system_name),
             ("institution_name", institution_name),
             ("institution_subtitle", institution_subtitle),
+            ("low_balance_threshold", threshold),
         ]:
             if getattr(obj, fld) != new:
                 changed_fields.append(fld)
