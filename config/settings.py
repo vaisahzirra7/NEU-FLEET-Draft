@@ -188,9 +188,9 @@ REPORT_LOGO_URL  = "/static/images/neu_logo.png"
 # precedence (see system_settings.mail.get_mail_connection).
 EMAIL_BACKEND       = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST          = _env("EMAIL_HOST",          "smtp.zoho.com")
-EMAIL_PORT          = int(_env("EMAIL_PORT",      "587"))
-EMAIL_USE_TLS       = _env_bool("EMAIL_USE_TLS",  default=True)
-EMAIL_USE_SSL       = _env_bool("EMAIL_USE_SSL",  default=False)
+EMAIL_PORT          = int(_env("EMAIL_PORT",      "465"))
+EMAIL_USE_TLS       = _env_bool("EMAIL_USE_TLS",  default=False)
+EMAIL_USE_SSL       = _env_bool("EMAIL_USE_SSL",  default=True)
 EMAIL_HOST_USER     = _env("EMAIL_HOST_USER",     default="")
 EMAIL_HOST_PASSWORD = _env("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL  = _env("DEFAULT_FROM_EMAIL",  default=EMAIL_HOST_USER or "noreply@example.com")
